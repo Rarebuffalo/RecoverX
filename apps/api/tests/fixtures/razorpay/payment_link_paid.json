@@ -1,0 +1,38 @@
+{
+  "entity": "event",
+  "account_id": "acc_apex_sandbox_01",
+  "event": "payment_link.paid",
+  "contains": ["payment_link", "payment", "order"],
+  "payload": {
+    "payment_link": {
+      "entity": {
+        "id": "plink_rzp_test_link_01",
+        "reference_id": "rec_order_rzp_test_001_att1",
+        "amount": 849900,
+        "amount_paid": 849900,
+        "currency": "INR",
+        "status": "paid",
+        "order_id": "order_rzp_test_001",
+        "description": "RecoverX Payment Link for Order order_rzp_test_001",
+        "customer": {
+          "name": "Rahul Sharma",
+          "email": "rahul.sharma@example.com",
+          "contact": "+919876543210"
+        },
+        "created_at": 1716300050
+      }
+    },
+    "payment": {
+      "entity": {
+        "id": "pay_rzp_test_captured_03",
+        "entity": "payment",
+        "amount": 849900,
+        "currency": "INR",
+        "status": "captured",
+        "order_id": "order_rzp_test_001",
+        "method": "upi"
+      }
+    }
+  },
+  "created_at": 1716300150
+}

@@ -1,0 +1,35 @@
+{
+  "entity": "event",
+  "account_id": "acc_apex_sandbox_01",
+  "event": "order.paid",
+  "contains": ["order", "payment"],
+  "payload": {
+    "order": {
+      "entity": {
+        "id": "order_rzp_test_001",
+        "entity": "order",
+        "amount": 849900,
+        "amount_paid": 849900,
+        "amount_due": 0,
+        "currency": "INR",
+        "receipt": "rcpt_001",
+        "status": "paid",
+        "attempts": 2,
+        "notes": [],
+        "created_at": 1716299900
+      }
+    },
+    "payment": {
+      "entity": {
+        "id": "pay_rzp_test_captured_02",
+        "entity": "payment",
+        "amount": 849900,
+        "currency": "INR",
+        "status": "captured",
+        "order_id": "order_rzp_test_001",
+        "method": "upi"
+      }
+    }
+  },
+  "created_at": 1716300102
+}

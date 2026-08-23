@@ -1,0 +1,42 @@
+{
+  "entity": "event",
+  "account_id": "acc_apex_sandbox_01",
+  "event": "payment.captured",
+  "contains": ["payment"],
+  "payload": {
+    "payment": {
+      "entity": {
+        "id": "pay_rzp_test_captured_02",
+        "entity": "payment",
+        "amount": 849900,
+        "currency": "INR",
+        "status": "captured",
+        "order_id": "order_rzp_test_001",
+        "invoice_id": null,
+        "international": false,
+        "method": "upi",
+        "amount_refunded": 0,
+        "refund_status": null,
+        "captured": true,
+        "description": "Apex Digital Purchase",
+        "card_id": null,
+        "bank": null,
+        "wallet": null,
+        "vpa": "rahul@upi",
+        "email": "rahul.sharma@example.com",
+        "contact": "+919876543210",
+        "notes": [],
+        "fee": 16998,
+        "tax": 2592,
+        "error_code": null,
+        "error_description": null,
+        "error_source": null,
+        "error_step": null,
+        "error_reason": null,
+        "acquirer_data": {},
+        "created_at": 1716300100
+      }
+    }
+  },
+  "created_at": 1716300101
+}
