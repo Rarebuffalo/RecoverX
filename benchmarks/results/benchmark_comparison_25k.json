@@ -1,0 +1,229 @@
+{
+  "metadata": {
+    "seed": 42,
+    "total_transactions": 25000,
+    "dataset_hash": "103b73203a98c949560e17098c6c8f843fa53539eb1e8c5ef1125070c452b488",
+    "generated_at": "2026-08-21T13:52:25.154190+00:00",
+    "execution_mode": "local_deterministic_batch",
+    "cost_assumptions": {
+      "payment_link_cost_inr": 2.0,
+      "ai_cost_per_case_inr": 0.05
+    }
+  },
+  "strategies": {
+    "never_recover": {
+      "strategy": "never_recover",
+      "throughput_cps": 923838.9,
+      "duration_seconds": 0.027,
+      "latency": {
+        "mean_ms": 0.0,
+        "median_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0
+      },
+      "metrics": {
+        "total_cases": 25000,
+        "revenue_at_risk_inr": 297652385.45,
+        "recovery_attempts": 0,
+        "attempt_rate": 0.0,
+        "successful_recoveries": 0,
+        "recovered_revenue_inr": 0.0,
+        "recovery_rate": 0.0,
+        "precision": null,
+        "recall": 0.0,
+        "f1_score": null,
+        "false_positive_amount_inr": 0.0,
+        "false_negative_amount_inr": 176633323.79,
+        "intervention_cost_inr": 0.0,
+        "ai_cost_inr": 1250.0,
+        "net_recovered_value_inr": -1250.0,
+        "confusion_matrix": {
+          "TP": 0,
+          "FP": 0,
+          "FN": 15168,
+          "TN": 9832
+        }
+      }
+    },
+    "recover_all": {
+      "strategy": "recover_all",
+      "throughput_cps": 1063024.1,
+      "duration_seconds": 0.024,
+      "latency": {
+        "mean_ms": 0.0,
+        "median_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0
+      },
+      "metrics": {
+        "total_cases": 25000,
+        "revenue_at_risk_inr": 297652385.45,
+        "recovery_attempts": 23645,
+        "attempt_rate": 0.9458,
+        "successful_recoveries": 14383,
+        "recovered_revenue_inr": 131634818.73,
+        "recovery_rate": 0.4422,
+        "precision": 0.6083,
+        "recall": 0.9482,
+        "f1_score": 0.7411,
+        "false_positive_amount_inr": 88255925.04,
+        "false_negative_amount_inr": 44998505.06,
+        "intervention_cost_inr": 47290.0,
+        "ai_cost_inr": 1250.0,
+        "net_recovered_value_inr": 131586278.73,
+        "confusion_matrix": {
+          "TP": 14383,
+          "FP": 9262,
+          "FN": 785,
+          "TN": 570
+        }
+      }
+    },
+    "first_failure_only": {
+      "strategy": "first_failure_only",
+      "throughput_cps": 456862.6,
+      "duration_seconds": 0.055,
+      "latency": {
+        "mean_ms": 0.0,
+        "median_ms": 0.0,
+        "p95_ms": 0.0,
+        "p99_ms": 0.0
+      },
+      "metrics": {
+        "total_cases": 25000,
+        "revenue_at_risk_inr": 297652385.45,
+        "recovery_attempts": 21940,
+        "attempt_rate": 0.8776,
+        "successful_recoveries": 13800,
+        "recovered_revenue_inr": 126526608.63,
+        "recovery_rate": 0.4251,
+        "precision": 0.629,
+        "recall": 0.9098,
+        "f1_score": 0.7438,
+        "false_positive_amount_inr": 77344280.62,
+        "false_negative_amount_inr": 50106715.16,
+        "intervention_cost_inr": 43880.0,
+        "ai_cost_inr": 1250.0,
+        "net_recovered_value_inr": 126481478.63,
+        "confusion_matrix": {
+          "TP": 13800,
+          "FP": 8140,
+          "FN": 1368,
+          "TN": 1692
+        }
+      }
+    },
+    "recoverx": {
+      "strategy": "recoverx",
+      "throughput_cps": 101932.5,
+      "duration_seconds": 0.245,
+      "latency": {
+        "mean_ms": 0.009,
+        "median_ms": 0.009,
+        "p95_ms": 0.013,
+        "p99_ms": 0.019
+      },
+      "metrics": {
+        "total_cases": 25000,
+        "revenue_at_risk_inr": 297652385.45,
+        "recovery_attempts": 18766,
+        "attempt_rate": 0.7506,
+        "successful_recoveries": 13448,
+        "recovered_revenue_inr": 120477413.85,
+        "recovery_rate": 0.4048,
+        "precision": 0.7166,
+        "recall": 0.8866,
+        "f1_score": 0.7926,
+        "false_positive_amount_inr": 46659742.25,
+        "false_negative_amount_inr": 56155909.94,
+        "intervention_cost_inr": 37532.0,
+        "ai_cost_inr": 1250.0,
+        "net_recovered_value_inr": 120438631.85,
+        "confusion_matrix": {
+          "TP": 13448,
+          "FP": 5318,
+          "FN": 1720,
+          "TN": 4514
+        }
+      }
+    }
+  },
+  "threshold_curves": {
+    "40": {
+      "threshold": 40,
+      "attempt_rate": 0.8094,
+      "recovery_rate": 0.4234,
+      "precision": 0.6798,
+      "recall": 0.9069,
+      "recovered_revenue_inr": 126014760.21,
+      "false_positive_amount_inr": 60207572.48,
+      "net_recovered_value_inr": 125973042.21
+    },
+    "50": {
+      "threshold": 50,
+      "attempt_rate": 0.7868,
+      "recovery_rate": 0.4181,
+      "precision": 0.6954,
+      "recall": 0.9018,
+      "recovered_revenue_inr": 124454637.66,
+      "false_positive_amount_inr": 54060751.5,
+      "net_recovered_value_inr": 124414047.66
+    },
+    "60": {
+      "threshold": 60,
+      "attempt_rate": 0.7506,
+      "recovery_rate": 0.4048,
+      "precision": 0.7166,
+      "recall": 0.8866,
+      "recovered_revenue_inr": 120477413.85,
+      "false_positive_amount_inr": 46659742.25,
+      "net_recovered_value_inr": 120438631.85
+    },
+    "70": {
+      "threshold": 70,
+      "attempt_rate": 0.6777,
+      "recovery_rate": 0.3749,
+      "precision": 0.7501,
+      "recall": 0.8379,
+      "recovered_revenue_inr": 111596271.04,
+      "false_positive_amount_inr": 35750151.71,
+      "net_recovered_value_inr": 111561137.04
+    },
+    "80": {
+      "threshold": 80,
+      "attempt_rate": 0.5852,
+      "recovery_rate": 0.3302,
+      "precision": 0.7902,
+      "recall": 0.7622,
+      "recovered_revenue_inr": 98299445.92,
+      "false_positive_amount_inr": 24177845.29,
+      "net_recovered_value_inr": 98268935.92
+    }
+  },
+  "throughput_benchmarks": {
+    "1000": {
+      "cases": 1000,
+      "duration_sec": 0.009,
+      "throughput_cps": 106195.8,
+      "latency_p95_ms": 0.011
+    },
+    "5000": {
+      "cases": 5000,
+      "duration_sec": 0.048,
+      "throughput_cps": 103592.7,
+      "latency_p95_ms": 0.012
+    },
+    "10000": {
+      "cases": 10000,
+      "duration_sec": 0.097,
+      "throughput_cps": 102694.8,
+      "latency_p95_ms": 0.013
+    },
+    "25000": {
+      "cases": 25000,
+      "duration_sec": 0.26,
+      "throughput_cps": 96238.2,
+      "latency_p95_ms": 0.013
+    }
+  }
+}
