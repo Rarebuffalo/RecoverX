@@ -79,7 +79,7 @@ async def list_opportunities_endpoint(
 
 @router.get("/{opportunity_id}", response_model=RecoveryOpportunityDetailRead)
 async def get_opportunity(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """Retrieve recovery opportunity details along with the associated order."""
@@ -94,7 +94,7 @@ async def get_opportunity(
 
 @router.get("/{opportunity_id}/score", response_model=ScoreResponse)
 async def get_opportunity_score(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """Computes and returns the deterministic recovery score and feature breakdown."""
@@ -119,7 +119,7 @@ async def get_opportunity_score(
 
 @router.get("/{opportunity_id}/eligibility", response_model=EligibilityResponse)
 async def get_opportunity_eligibility(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """Evaluates and returns recovery eligibility."""
@@ -142,7 +142,7 @@ async def get_opportunity_eligibility(
 
 @router.get("/{opportunity_id}/policy-decision", response_model=PolicyDecisionResponse)
 async def get_opportunity_policy_decision(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     proposed_action: str = Query("CREATE_PAYMENT_LINK"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -168,7 +168,7 @@ async def get_opportunity_policy_decision(
 
 @router.post("/{opportunity_id}/evaluate", response_model=EvaluationResponse)
 async def evaluate_opportunity_endpoint(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     proposed_action: str = Query("CREATE_PAYMENT_LINK"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -219,7 +219,7 @@ async def evaluate_opportunity_endpoint(
 
 @router.post("/{opportunity_id}/agent-evaluate", response_model=AgentEvaluationResponse)
 async def agent_evaluate_opportunity_endpoint(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """Executes the AI Diagnostic Agent to propose an action, gated by the Policy Engine."""
@@ -271,7 +271,7 @@ async def agent_evaluate_opportunity_endpoint(
 
 @router.post("/{opportunity_id}/execute", response_model=ActionExecutionResponse)
 async def execute_opportunity_action(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """Executes the policy-approved recovery action and dispatches payment link creation."""
@@ -314,13 +314,16 @@ async def execute_opportunity_action(
 
 @router.get("/{opportunity_id}/actions", response_model=List[ActionExecutionResponse])
 async def get_opportunity_actions(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """Lists all historical recovery execution actions for this opportunity."""
+    opp = await OpportunityService.get_by_id(db, opportunity_id=opportunity_id)
+    if not opp:
+        return []
     res = await db.execute(
         select(RecoveryAction)
-        .where(RecoveryAction.opportunity_id == opportunity_id)
+        .where(RecoveryAction.opportunity_id == opp.id)
         .order_by(RecoveryAction.created_at.desc())
     )
     actions = res.scalars().all()
@@ -344,7 +347,7 @@ async def get_opportunity_actions(
 
 @router.get("/{opportunity_id}/agent-decisions", response_model=List[AgentDecisionRead])
 async def get_opportunity_agent_decisions(
-    opportunity_id: uuid.UUID,
+    opportunity_id: str,
     db: AsyncSession = Depends(get_db),
 ):
     """Retrieves all historical diagnostic decisions generated for this recovery opportunity."""
