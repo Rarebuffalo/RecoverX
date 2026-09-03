@@ -82,7 +82,24 @@ Razorpay Webhook (POST /api/v1/webhooks/razorpay)
 │ 3. audit_events (Append-only immutable audit trail)          │
 └──────────────────────────────────────────────────────────────┘
 ```
-
+## High level architecuture
+```
+                    ┌──────────────────────┐
+                    │      Railway         │
+                    │                      │
+Browser ───────────►│ Next.js Frontend     │
+                    │       │              │
+                    │       ▼              │
+                    │ FastAPI API ◄────────┼──── Razorpay Test API
+                    │   │      │           │
+                    │   │      └───────────┼──── Razorpay Webhooks
+                    │   ▼                  │
+                    │ PostgreSQL           │
+                    │                      │
+                    │ Redis ◄── Celery     │
+                    │           Worker     │
+                    └──────────────────────┘
+```
 ## 3. Core Safety Invariants (10 Invariant Truths)
 
 1. **INVARIANT 1 (Paid Order Isolation):** A paid order can NEVER receive recovery approval under any circumstance.
