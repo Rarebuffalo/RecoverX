@@ -1,146 +1,142 @@
 # RecoverX: Autonomous AI Revenue Recovery Layer
 
-> **Razorpay AI Buildathon 2026 — Track 03: AI Revenue Recovery**  
-> *Current Status: Phase 8 Complete — Submission Ready, Feature Frozen & Pitch Hardened*
+> **An autonomous, policy-bounded revenue recovery platform that safely rescues dropped digital checkouts and failed payments via Razorpay payment rails.**
 
 ---
 
-## What is RecoverX?
+## What RecoverX Does
 
-**RecoverX** is an autonomous, policy-bounded revenue recovery platform for digital merchants. Digital commerce experiences 5%–18% revenue leakage from dropped checkouts, transient gateway timeouts, and payment declines. RecoverX closes the loop from real-time detection and AI diagnosis to deterministic policy gating and bounded recovery execution via Razorpay rails.
+RecoverX detects checkout dropoffs and payment failures in real time, diagnoses root causes with AI reasoning, scores recoverability, enforces strict deterministic policy gates, and dispatches bounded payment recovery workflows.
 
-### Core Architectural Principle: The Untrusted AI Boundary
-* **The LLM is Untrusted:** The AI agent acts exclusively as a diagnostic and strategy reasoning engine that proposes structured actions.
-* **Deterministic Policy Gate:** 100% of financial actions are validated by a deterministic, zero-hallucination policy engine.
-* **Bounded Execution:** Only authorized, idempotent payment links and retries can be dispatched to Razorpay Test APIs.
-* **Immutable Audit Trail:** Every state change, policy check, and recovered rupee is recorded in an append-only audit ledger.
+$$\text{DETECT} \longrightarrow \text{DIAGNOSE} \longrightarrow \text{SCORE} \longrightarrow \text{POLICY GATE} \longrightarrow \text{EXECUTE} \longrightarrow \text{VERIFY} \longrightarrow \text{RECOVER}$$
 
----
-
-## Tech Stack
-
-* **Backend:** Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2.0 (async), Alembic, PostgreSQL 16
-* **AI Diagnostic Layer:** Structured JSON Agent (`recovery-diagnostic-v1`), Multi-provider abstraction (`LocalDeterministicMockLLM` + `GeminiLLMProvider`)
-* **Execution & Settlement:** Dual Gateway Adapters (`RazorpaySandboxAdapter` + `LocalDeterministicMockAdapter`), Celery / Async Worker Pipeline, `RecoveryOutcomeService`
-* **Task Broker & Cache:** Redis 7
-* **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS
-* **Testing:** pytest, pytest-asyncio, aiosqlite, PostgreSQL integration test harness
-* **DevOps:** Docker Compose, Makefile
+1. **DETECT:** Ingests checkout dropoffs, gateway timeouts, and payment failure webhooks.
+2. **DIAGNOSE:** Evaluates sanitized error telemetry using structured AI reasoning (`recovery-diagnostic-v1`).
+3. **SCORE:** Calculates an interpretable, deterministic recoverability score ($0-100$).
+4. **POLICY GATE:** Enforces 10 hard safety invariants (spending limits, cooldowns, idempotency).
+5. **EXECUTE:** Dispatches bounded recovery actions (e.g. Razorpay Payment Links) with server-side amount authority.
+6. **VERIFY:** Confirms HMAC-SHA256 signed payment webhooks from Razorpay before declaring success.
+7. **RECOVER:** Settles verified recovered revenue into an immutable audit ledger.
 
 ---
 
-## Milestone Progress
+## The Safety Model: Untrusted AI vs Authoritative Policy
 
-### Phase 1: Foundation & Canonical Payment Domain (Complete)
-- [x] Monorepo structure (`apps/api`, `apps/web`, `docs`)
-- [x] Docker Compose environment (`postgres`, `redis`, `api`, `web`)
-- [x] Canonical payment domain model in PostgreSQL.
-- [x] Seed data script (`python -m app.db.seed`) with Scenarios A, B, and C.
-- [x] Liveness (`/health`) and Readiness (`/ready`) probes.
-
-### Phase 2: Webhook Ingestion, Authentication & State Sync (Complete)
-- [x] Cryptographic HMAC-SHA256 signature verification over exact raw request body bytes.
-- [x] Atomic deduplication on `(provider, event_id)`.
-- [x] Domain event handlers: `payment.failed`, `payment.captured`, `order.paid`, `payment_link.paid`.
-- [x] Event precedence rules: `PAID / CAPTURED` dominates `FAILED`.
-- [x] Automatic `RecoveryOpportunity` initialization in `DETECTED` state upon primary failure.
-
-### Phase 3: Interpretable Scoring & Policy Engine (Complete)
-- [x] Deterministic `FailureClassifier` normalizing error codes.
-- [x] Additive, inspectable `RecoveryScoringService` ($0-100$ score with feature breakdown).
-- [x] `RecoveryEligibilityService` (`AUTO_RECOVER`, `MANUAL_REVIEW`, `DO_NOT_RECOVER`).
-- [x] Deterministic `PolicyEngine` enforcing the 10 Core Safety Invariants (`ALLOW`, `BLOCK`, `ESCALATE`).
-
-### Phase 4: AI Diagnostic Agent (Proposal Mode Only) (Complete)
-- [x] Multi-provider LLM abstraction (`BaseLLMProvider`, `LocalDeterministicMockLLM`, `GeminiLLMProvider`).
-- [x] Zero-PII Context Sanitization via `RecoveryContextBuilder`.
-- [x] Strict Prompt Injection defenses using delimited `<untrusted_recovery_context>` tags (`recovery-diagnostic-v1`).
-- [x] Structured JSON output validation (`AgentProposal` with `DiagnosisCategory` & `RecoveryActionType`).
-- [x] AI Model confidence decoupled from deterministic business recoverability score.
-- [x] Graceful, deterministic fallback to `ESCALATE_TO_MERCHANT` on AI timeout/error.
-
-### Phase 5: Bounded Financial Execution & Outcome Engine (Complete)
-- [x] Verified Razorpay Payment Links API specification in `docs/razorpay-payment-links.md`.
-- [x] Dual Gateway Adapters (`RazorpaySandboxAdapter` + `LocalDeterministicMockAdapter`).
-- [x] Configurable execution modes (`local_deterministic`, `razorpay_sandbox`).
-- [x] Execution state machine (`PENDING`, `QUEUED`, `EXECUTING`, `SUCCEEDED`, `FAILED`, `AMBIGUOUS`, `CANCELLED`).
-- [x] Strict deterministic action idempotency keying (`recovery:{opportunity_id}:attempt:{attempt_number}`).
-- [x] Pre-execution safety checks (unpaid order verification, terminal opportunity seals, policy re-checks).
-- [x] Authoritative server-side amount calculation (AI and client have zero influence on executed amount).
-- [x] Provider error classification and `AMBIGUOUS` timeout handling without blind retries.
-- [x] Celery background task worker integration (`execute_recovery_action_task`).
-- [x] `RecoveryOutcomeService` verifying causal proof of captured payment before settling recovered revenue.
-- [x] Prevention of double-counting on duplicate captured webhooks.
-- [x] Developer payment simulation endpoint (`POST /api/v1/developer/simulate-payment-success`).
-- [x] Next.js Command Center displaying real-time execution lifecycle and settled revenue metrics.
-- [x] 100% passing automated test suite (63 tests).
-
----
-
-## Quickstart & Local Setup
-
-### 1. Prerequisites
-- Docker & Docker Compose
-- Python 3.11+ (or `uv`)
-- Node.js 18+ & npm
-
-### 2. Environment Setup
-```bash
-cp .env.example .env
+```
+[ Sanitized Telemetry ] ──> [ AI Diagnostic Agent ] ──> (Advisory Proposal)
+                                                                 │
+                                                                 ▼
+[ Payment Context ]     ──> [ Deterministic Policy Gate ] ──> [ Bounded Executor ] ──> [ Razorpay ]
+                                (Financial Authority)          (Idempotent Links)
 ```
 
-### 3. Run with Docker Compose (Recommended)
+* **The AI Agent is ADVISORY ONLY:** The LLM proposes diagnoses and recovery strategies. It has zero permissions to execute financial transactions, create database records, or modify order amounts.
+* **The Policy Gate is the FINANCIAL AUTHORITY:** 100% of recovery actions must pass deterministic invariant rules before execution.
+* **Bounded Execution:** Amounts are strictly computed server-side from order records.
+* **Zero Blind Retries:** Indeterminate gateway timeouts are quarantined in `AMBIGUOUS / HELD` state until reconciliation.
+
+---
+
+## Runtime Modes
+
+| Mode | Purpose | Razorpay Credentials | AI Engine | Payment Verification |
+| :--- | :--- | :--- | :--- | :--- |
+| **Mode 1: Local Demo (Default)** | Offline pitch demonstration & development | Not Required (`LocalDeterministicMockAdapter`) | Zero-cost mock (`LocalDeterministicMockLLM`) | Simulated webhook capture |
+| **Mode 2: Razorpay Test Mode** | Live buildathon evaluation with real test payment rails | Required (`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`) | Optional Gemini (`LLM_API_KEY`) or mock | Real Razorpay test payment link & webhook |
+| **Mode 3: Production** | Enterprise multi-tenant deployment | Production merchant KYC & live keys | Production Gemini 2.5 Flash | Real-money settlement & reconciliation |
+
+---
+
+## Quickstart (Docker Compose)
+
+The fastest way to launch the complete RecoverX stack:
+
 ```bash
+# 1. Clone & Enter Repository
+git clone https://github.com/Rarebuffalo/RecoverX.git
+cd RecoverX
+
+# 2. Copy Environment Template
+cp .env.example .env
+
+# 3. Start All Services (API, Web Dashboard, Postgres, Redis)
 docker compose up --build
 ```
-* **Frontend Command Center:** [http://localhost:3000/opportunities](http://localhost:3000/opportunities)
-* **API Documentation:** [http://localhost:8000/api/v1/docs](http://localhost:8000/api/v1/docs)
-* **Health Check:** [http://localhost:8000/health](http://localhost:8000/health)
 
-### 4. Run Backend & Migrations Locally
+* **Frontend Dashboard:** [http://localhost:3000](http://localhost:3000)
+* **Work Queue:** [http://localhost:3000/opportunities](http://localhost:3000/opportunities)
+* **Interactive Strategy Frontier:** [http://localhost:3000/dashboard/analytics](http://localhost:3000/dashboard/analytics)
+* **Backend API Docs (Swagger):** [http://localhost:8000/docs](http://localhost:8000/docs)
+* **API Health Probe:** [http://localhost:8000/health](http://localhost:8000/health)
+
+---
+
+## Environment Variables
+
+| Variable | Required? | Default / Mode 1 | Mode 2 (Razorpay Test) | Description |
+| :--- | :---: | :--- | :--- | :--- |
+| `ENVIRONMENT` | Yes | `development` | `development` | Runtime environment name |
+| `DATABASE_URL` | Yes | `postgresql+asyncpg://...` | `postgresql+asyncpg://...` | PostgreSQL async connection URI |
+| `REDIS_URL` | Yes | `redis://localhost:6379/0` | `redis://localhost:6379/0` | Redis task queue & cache URI |
+| `EXECUTION_MODE` | Yes | `local_deterministic` | `razorpay_sandbox` | Selects gateway execution adapter |
+| `RAZORPAY_KEY_ID` | Mode 2 | *(empty)* | `rzp_test_...` | Razorpay Test Key ID |
+| `RAZORPAY_KEY_SECRET` | Mode 2 | *(empty)* | `••••••••••••` | Razorpay Test Key Secret |
+| `RAZORPAY_WEBHOOK_SECRET` | Mode 2 | *(empty)* | `••••••••••••` | Webhook HMAC verification secret |
+| `LLM_PROVIDER` | No | `mock` | `gemini` or `mock` | AI diagnostic reasoning engine |
+| `LLM_API_KEY` | If Gemini | *(empty)* | `••••••••••••` | Google Gemini API Key |
+| `NEXT_PUBLIC_API_BASE_URL` | Yes | `http://localhost:8000` | `http://localhost:8000` | Frontend-to-backend API URL |
+
+---
+
+## Pitch & Evaluation Scenarios
+
+RecoverX includes 4 canonical scenarios in both local seed data and the Demo Center:
+
+* **Scenario A — Safe Recovery (₹8,499):** Transient NPCI UPI timeout. High score ($87$). Policy: **`ALLOW`**. Recovery link generated and verified upon payment.
+* **Scenario B — Policy Escalation (₹45,000):** High-ticket purchase exceeding the ₹15,000 autonomous policy limit. Policy: **`ESCALATE`** (Manual Review Required).
+* **Scenario D — Ambiguous Timeout (₹3,250):** Gateway timeout with indeterminate switch state. Policy: **`AMBIGUOUS / HELD`** (Zero blind retries).
+* **Scenario E — Hard Decline (₹6,500):** Stolen card / fraud report. Score $<20$. Policy: **`BLOCK`** (Permanently closed).
+
+---
+
+## Empirical Benchmark (25,000 Synthetic Cases)
+
+> **Note on Benchmark Data:** The dataset evaluated on the Analytics page comprises 25,000 synthetic transaction records generated to benchmark Pareto frontiers and score calibration. The ₹120.48M metric represents simulated recovery yield across this synthetic dataset, not real merchant revenue.
+
+* **Baseline A (Recover All / Naive):** Attempt Rate 94.6%, Precision 60.8%, Recall 94.8%.
+* **RecoverX Policy V1 ($\tau=60$):** Attempt Rate 75.1%, Precision **71.7% (+10.9%)**, Recall 88.7%, False Positive Spend contained by -38%.
+* **Candidate Policy V2:** Attempt Rate 81.5%, Precision 68.4%, Recall **92.1%**.
+
+---
+
+## Testing & Quality Assurance
+
 ```bash
+# Run 75/75 Backend Unit & Integration Tests
 cd apps/api
-uv venv
-source .venv/bin/activate
-uv pip install -e ".[dev]"
+uv run pytest -v
 
-# Run Alembic Migrations
-alembic upgrade head
-
-# Seed Initial Demo Scenarios
-python -m app.db.seed
-
-# Run Evaluation CLI
-python -m app.scripts.evaluate_recovery
-
-# Run FastAPI Server
-uvicorn app.main:app --reload --port 8000
-```
-
-### 5. Run Automated Tests
-```bash
-cd apps/api
-pytest -v
+# Run Frontend Linting & Production Build
+cd apps/web
+npm run lint
+npm run build
 ```
 
 ---
 
-## Pre-Seeded Development Scenarios
+## Documentation Links
 
-| Scenario | Order Amount | Failure Mode | Recovery Score | AI Proposal | Policy Decision | Execution & Outcome |
-| :--- | :--- | :--- | :---: | :--- | :---: | :--- |
-| **Scenario A** | ₹8,499.00 | Gateway Timeout (UPI Intent) | **100/100 (HIGH)** | `CREATE_RECOVERY_PAYMENT_LINK` (91%) | **`ALLOW`** | **Payment Link Created** &rarr; Paid &rarr; **₹8,499 Recovered** |
-| **Scenario B** | ₹45,000.00 | Insufficient Funds (2 Attempts) | **45/100 (LOW)** | `ESCALATE_TO_MERCHANT` (88%) | **`ESCALATE`** | Escalated to Merchant Dashboard |
-| **Scenario C** | ₹4,999.00 | Paid / Recovered Transaction | **55/100 (LOW)** | `NO_ACTION` (99%) | **`BLOCK`** | Further Recovery Blocked (`ORDER_ALREADY_PAID`) |
+* [Architecture & Security Model](docs/architecture.md)
+* [API Reference](docs/api-reference.md)
+* [Manual Testing & Demo Guide](docs/MANUAL_TESTING.md)
+* [Razorpay Webhooks Integration](docs/razorpay-webhooks.md)
+* [Payment Links Specification](docs/razorpay-payment-links.md)
+* [Policy Engine & Invariants](docs/policy-engine.md)
+* [AI Diagnostic Agent](docs/ai-agent.md)
+* [Benchmark Methodology](docs/benchmark.md)
 
 ---
 
-## Architecture Reference
-* [`docs/architecture.md`](file:///home/Krishna-Singh/RecoverX/docs/architecture.md)
-* [`docs/execution-engine.md`](file:///home/Krishna-Singh/RecoverX/docs/execution-engine.md)
-* [`docs/outcome-engine.md`](file:///home/Krishna-Singh/RecoverX/docs/outcome-engine.md)
-* [`docs/razorpay-payment-links.md`](file:///home/Krishna-Singh/RecoverX/docs/razorpay-payment-links.md)
-* [`docs/ai-agent.md`](file:///home/Krishna-Singh/RecoverX/docs/ai-agent.md)
-* [`docs/policy-engine.md`](file:///home/Krishna-Singh/RecoverX/docs/policy-engine.md)
-* [`docs/recovery-scoring.md`](file:///home/Krishna-Singh/RecoverX/docs/recovery-scoring.md)
-* [`docs/razorpay-webhooks.md`](file:///home/Krishna-Singh/RecoverX/docs/razorpay-webhooks.md)
+## License
+
+MIT License. Developed for the Razorpay AI Buildathon 2026.
