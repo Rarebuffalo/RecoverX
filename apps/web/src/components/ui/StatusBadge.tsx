@@ -16,7 +16,7 @@ export function StatusBadge({ status, size = "sm" }: StatusBadgeProps) {
       case "ALLOW":
       case "PAID":
       case "CAPTURED":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+        return "bg-emerald-50 text-emerald-700 border-emerald-200";
 
       case "INTERVENED":
       case "EXECUTING":
@@ -24,17 +24,17 @@ export function StatusBadge({ status, size = "sm" }: StatusBadgeProps) {
       case "SCORING":
       case "AUTHORIZED":
       case "QUEUED":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/30";
+        return "bg-blue-50 text-blue-700 border-blue-200";
 
       case "AMBIGUOUS":
       case "PENDING":
       case "RETRY_PENDING":
       case "DETECTED":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/30";
+        return "bg-amber-50 text-amber-700 border-amber-200";
 
       case "ESCALATED":
       case "CUSTOMER_ACTION_REQUIRED":
-        return "bg-purple-500/10 text-purple-400 border-purple-500/30";
+        return "bg-purple-50 text-purple-700 border-purple-200";
 
       case "BLOCK":
       case "FAILED":
@@ -42,10 +42,10 @@ export function StatusBadge({ status, size = "sm" }: StatusBadgeProps) {
       case "CLOSED_UNRECOVERED":
       case "CANCELLED":
       case "EXPIRED":
-        return "bg-rose-500/10 text-rose-400 border-rose-500/30";
+        return "bg-rose-50 text-rose-700 border-rose-200";
 
       default:
-        return "bg-slate-800 text-slate-300 border-slate-700";
+        return "bg-slate-100 text-slate-700 border-slate-200";
     }
   };
 
@@ -58,7 +58,7 @@ export function StatusBadge({ status, size = "sm" }: StatusBadgeProps) {
       )}
     >
       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />
-      {normalized.replace(/_/g, " ")}
+      <span>{normalized.replace("_", " ")}</span>
     </span>
   );
 }
