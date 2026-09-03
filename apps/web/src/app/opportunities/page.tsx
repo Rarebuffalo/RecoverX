@@ -18,6 +18,7 @@ import {
 import { fetchOpportunities } from "@/lib/api";
 import { RecoveryOpportunity } from "@/lib/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { formatINR } from "@/lib/utils";
 import clsx from "clsx";
 
 const tabs = [
@@ -125,7 +126,13 @@ export default function OpportunitiesWorkQueuePage() {
 
       {/* Work Queue Cards */}
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {loading && opportunities.length === 0 ? (
+          <div className="space-y-3 animate-pulse">
+            {[1, 2, 3, 4].map((n) => (
+              <div key={n} className="h-20 bg-white border border-slate-200 rounded-xl p-5"></div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="p-12 text-center bg-white border border-slate-200 rounded-xl space-y-2">
             <div className="text-slate-400 text-sm">No recovery cases found for current filter</div>
             <button
@@ -161,7 +168,7 @@ export default function OpportunitiesWorkQueuePage() {
                 <div className="space-y-1.5 flex-1 min-w-0">
                   <div className="flex items-center gap-3">
                     <span className="text-lg font-bold font-mono text-slate-900">
-                      ₹{amount.toLocaleString("en-IN")}
+                      {formatINR(amount)}
                     </span>
                     <span className="text-sm font-semibold text-slate-800 truncate">
                       {customerName}
