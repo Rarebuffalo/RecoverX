@@ -32,14 +32,20 @@ DEMO_MERCHANT_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 CUST_RAHUL_ID = uuid.UUID("22222222-2222-2222-2222-222222222221")
 CUST_PRIYA_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
 CUST_AMIT_ID = uuid.UUID("22222222-2222-2222-2222-222222222223")
+CUST_VIKRAM_ID = uuid.UUID("22222222-2222-2222-2222-222222222224")
+CUST_UNKNOWN_ID = uuid.UUID("22222222-2222-2222-2222-222222222225")
 
 ORDER_A_ID = uuid.UUID("33333333-3333-3333-3333-333333333331")
 ORDER_B_ID = uuid.UUID("33333333-3333-3333-3333-333333333332")
 ORDER_C_ID = uuid.UUID("33333333-3333-3333-3333-333333333333")
+ORDER_D_ID = uuid.UUID("33333333-3333-3333-3333-333333333334")
+ORDER_E_ID = uuid.UUID("33333333-3333-3333-3333-333333333335")
 
 OPP_A_ID = uuid.UUID("44444444-4444-4444-4444-444444444441")
 OPP_B_ID = uuid.UUID("44444444-4444-4444-4444-444444444442")
 OPP_C_ID = uuid.UUID("44444444-4444-4444-4444-444444444443")
+OPP_D_ID = uuid.UUID("44444444-4444-4444-4444-444444444444")
+OPP_E_ID = uuid.UUID("44444444-4444-4444-4444-444444444445")
 
 
 async def run_seeding(session: AsyncSession, force: bool = False):
@@ -127,11 +133,35 @@ async def run_seeding(session: AsyncSession, force: bool = False):
         created_at=now - timedelta(days=1),
         updated_at=now,
     )
-    session.add_all([cust_rahul, cust_priya, cust_amit])
+    cust_vikram = Customer(
+        id=CUST_VIKRAM_ID,
+        merchant_id=DEMO_MERCHANT_ID,
+        name="Vikram Malhotra",
+        email="vikram.m@example.com",
+        phone="+919876543213",
+        lifetime_value_inr=Decimal("14200.00"),
+        total_orders=3,
+        successful_orders=2,
+        created_at=now - timedelta(days=15),
+        updated_at=now,
+    )
+    cust_unknown = Customer(
+        id=CUST_UNKNOWN_ID,
+        merchant_id=DEMO_MERCHANT_ID,
+        name="Anonymous Customer",
+        email="fraud_alert_99@test.com",
+        phone="+919876543214",
+        lifetime_value_inr=Decimal("0.00"),
+        total_orders=1,
+        successful_orders=0,
+        created_at=now - timedelta(days=1),
+        updated_at=now,
+    )
+    session.add_all([cust_rahul, cust_priya, cust_amit, cust_vikram, cust_unknown])
     await session.flush()
 
     # ----------------------------------------------------
-    # SCENARIO A: Fresh Failure / Transient Timeout (₹8,499) -> DETECTED
+    # SCENARIO A: Fresh Failure / Transient Timeout (₹8,499) -> DETECTED / ALLOW
     # ----------------------------------------------------
     order_a = Order(
         id=ORDER_A_ID,
@@ -238,7 +268,7 @@ async def run_seeding(session: AsyncSession, force: bool = False):
     session.add(opp_b)
 
     # ----------------------------------------------------
-    # SCENARIO C: Successful Recovery (₹4,999) -> RECOVERED
+    # SCENARIO C: Successful Recovery (₹4,999) -> RECOVERED / PAID
     # ----------------------------------------------------
     order_c = Order(
         id=ORDER_C_ID,
@@ -297,6 +327,102 @@ async def run_seeding(session: AsyncSession, force: bool = False):
     session.add(opp_c)
     await session.flush()
 
+    # ----------------------------------------------------
+    # SCENARIO D: Ambiguous Gateway Timeout (₹3,250) -> INTERVENED / AMBIGUOUS
+    # ----------------------------------------------------
+    order_d = Order(
+        id=ORDER_D_ID,
+        merchant_id=DEMO_MERCHANT_ID,
+        customer_id=CUST_VIKRAM_ID,
+        provider_order_id="order_rzp_mock_d04",
+        amount_inr=Decimal("3250.00"),
+        currency="INR",
+        status=OrderStatus.ATTEMPTED,
+        created_at=now - timedelta(hours=4),
+        updated_at=now - timedelta(hours=3),
+    )
+    session.add(order_d)
+    await session.flush()
+
+    attempt_d1 = PaymentAttempt(
+        id=uuid.uuid4(),
+        order_id=ORDER_D_ID,
+        merchant_id=DEMO_MERCHANT_ID,
+        provider_payment_id="pay_rzp_mock_d04_att1",
+        method="upi",
+        status=PaymentAttemptStatus.FAILED,
+        amount_inr=Decimal("3250.00"),
+        failure_code="GATEWAY_NETWORK_TIMEOUT",
+        failure_reason="Gateway switch timed out before ACK received.",
+        created_at=now - timedelta(hours=4),
+        updated_at=now - timedelta(hours=4),
+    )
+    session.add(attempt_d1)
+
+    opp_d = RecoveryOpportunity(
+        id=OPP_D_ID,
+        merchant_id=DEMO_MERCHANT_ID,
+        order_id=ORDER_D_ID,
+        status=OpportunityStatus.INTERVENED,
+        revenue_at_risk_inr=Decimal("3250.00"),
+        recovered_amount_inr=Decimal("0.00"),
+        recovery_score=72,
+        attempt_count=1,
+        last_attempt_at=now - timedelta(hours=3),
+        created_at=now - timedelta(hours=4),
+        updated_at=now - timedelta(hours=3),
+    )
+    session.add(opp_d)
+
+    # ----------------------------------------------------
+    # SCENARIO E: Hard / Fraud Decline (₹6,500) -> CLOSED_UNRECOVERED / BLOCK
+    # ----------------------------------------------------
+    order_e = Order(
+        id=ORDER_E_ID,
+        merchant_id=DEMO_MERCHANT_ID,
+        customer_id=CUST_UNKNOWN_ID,
+        provider_order_id="order_rzp_mock_e05",
+        amount_inr=Decimal("6500.00"),
+        currency="INR",
+        status=OrderStatus.ATTEMPTED,
+        created_at=now - timedelta(days=1),
+        updated_at=now - timedelta(days=1),
+    )
+    session.add(order_e)
+    await session.flush()
+
+    attempt_e1 = PaymentAttempt(
+        id=uuid.uuid4(),
+        order_id=ORDER_E_ID,
+        merchant_id=DEMO_MERCHANT_ID,
+        provider_payment_id="pay_rzp_mock_e05_att1",
+        method="card",
+        status=PaymentAttemptStatus.FAILED,
+        amount_inr=Decimal("6500.00"),
+        failure_code="PAYMENT_CARD_STOLEN_DECLINE",
+        failure_reason="Card reported stolen. Fraud risk threshold exceeded.",
+        created_at=now - timedelta(days=1),
+        updated_at=now - timedelta(days=1),
+    )
+    session.add(attempt_e1)
+
+    opp_e = RecoveryOpportunity(
+        id=OPP_E_ID,
+        merchant_id=DEMO_MERCHANT_ID,
+        order_id=ORDER_E_ID,
+        status=OpportunityStatus.CLOSED_UNRECOVERED,
+        revenue_at_risk_inr=Decimal("6500.00"),
+        recovered_amount_inr=Decimal("0.00"),
+        recovery_score=14,
+        attempt_count=1,
+        last_attempt_at=now - timedelta(days=1),
+        resolved_at=now - timedelta(days=1),
+        created_at=now - timedelta(days=1),
+        updated_at=now - timedelta(days=1),
+    )
+    session.add(opp_e)
+    await session.flush()
+
     # Add Actions & Audit Events after Opportunities are flushed
     action_b = RecoveryAction(
         id=uuid.uuid4(),
@@ -319,6 +445,17 @@ async def run_seeding(session: AsyncSession, force: bool = False):
         executed_at=now - timedelta(hours=4, minutes=30),
         created_at=now - timedelta(hours=4, minutes=30),
     )
+    action_d = RecoveryAction(
+        id=uuid.uuid4(),
+        opportunity_id=OPP_D_ID,
+        action_type=RecoveryActionType.CREATE_PAYMENT_LINK,
+        idempotency_key=f"idem_{OPP_D_ID}_attempt_1",
+        policy_approved=True,
+        execution_status=ActionExecutionStatus.AMBIGUOUS,
+        error_category="GATEWAY_NETWORK_TIMEOUT",
+        error_message="Gateway switch connection timed out before ACK received. Blind retries blocked.",
+        created_at=now - timedelta(hours=3),
+    )
     audit_c = AuditEvent(
         id=uuid.uuid4(),
         merchant_id=DEMO_MERCHANT_ID,
@@ -329,9 +466,9 @@ async def run_seeding(session: AsyncSession, force: bool = False):
         event_data={"recovered_amount_inr": "4999.00", "provider_payment_id": "pay_rzp_mock_c03_att2_recovered"},
         created_at=now - timedelta(hours=4),
     )
-    session.add_all([action_b, action_c, audit_c])
+    session.add_all([action_b, action_c, action_d, audit_c])
     await session.commit()
-    logger.info("Successfully seeded RecoverX demo database with Scenarios A, B, and C.")
+    logger.info("Successfully seeded RecoverX demo database with Scenarios A, B, C, D, and E.")
 
 
 async def seed_database(force: bool = False):
