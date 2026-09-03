@@ -11,8 +11,6 @@ import {
   ArrowRight,
   ShieldCheck,
   RefreshCw,
-  Zap,
-  RotateCw,
 } from "lucide-react";
 import { resetDemoState } from "@/lib/api";
 import clsx from "clsx";
@@ -29,7 +27,7 @@ const scenarios = [
     expectedDecision: "ALLOW",
     expectedAction: "CREATE_PAYMENT_LINK",
     expectedOutcome: "Link created, simulated capture verified, ₹8,499 recovered.",
-    decisionColor: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
+    decisionColor: "text-emerald-700 bg-emerald-50 border-emerald-200",
     badgeIcon: CheckCircle2,
   },
   {
@@ -43,7 +41,7 @@ const scenarios = [
     expectedDecision: "ESCALATE",
     expectedAction: "MANUAL_REVIEW_REQUIRED",
     expectedOutcome: "Amount exceeds ₹15,000 policy cap. Autonomous link creation blocked.",
-    decisionColor: "text-amber-400 bg-amber-500/10 border-amber-500/30",
+    decisionColor: "text-amber-700 bg-amber-50 border-amber-200",
     badgeIcon: AlertTriangle,
   },
   {
@@ -57,7 +55,7 @@ const scenarios = [
     expectedDecision: "HOLD / AMBIGUOUS",
     expectedAction: "AWAIT_RECONCILIATION",
     expectedOutcome: "Gateway state unconfirmed. Blind retries blocked to prevent double debit.",
-    decisionColor: "text-amber-400 bg-amber-500/10 border-amber-500/30",
+    decisionColor: "text-amber-700 bg-amber-50 border-amber-200",
     badgeIcon: HelpCircle,
   },
   {
@@ -71,7 +69,7 @@ const scenarios = [
     expectedDecision: "BLOCK",
     expectedAction: "PERMANENTLY_BLOCKED",
     expectedOutcome: "Hard fraud signal detected. Policy invariant halts recovery execution.",
-    decisionColor: "text-rose-400 bg-rose-500/10 border-rose-500/30",
+    decisionColor: "text-rose-700 bg-rose-50 border-rose-200",
     badgeIcon: XCircle,
   },
 ];
@@ -96,18 +94,18 @@ export default function DemoCenterPage() {
   return (
     <div className="space-y-8">
       {/* Demo Center Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#1e293b]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              <PlayCircle className="w-6 h-6 text-purple-400" />
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
+              <PlayCircle className="w-6 h-6 text-purple-600" />
               Interactive Recovery Demo Center
             </h1>
-            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">
+            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-semibold">
               Sandbox Testing
             </span>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-slate-600 mt-1">
             Test RecoverX autonomous recovery, policy gating, and edge-case behaviors on deterministic rails.
           </p>
         </div>
@@ -115,16 +113,16 @@ export default function DemoCenterPage() {
         <button
           onClick={handleReset}
           disabled={isResetting}
-          className="px-4 py-2 rounded-lg bg-[#162032] hover:bg-[#1f2d47] border border-[#1e293b] text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-2 transition disabled:opacity-50"
+          className="px-4 py-2 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 text-xs font-semibold flex items-center gap-2 transition disabled:opacity-50 shadow-xs"
         >
-          <RefreshCw className={clsx("w-3.5 h-3.5 text-blue-400", isResetting && "animate-spin")} />
+          <RefreshCw className={clsx("w-3.5 h-3.5 text-blue-600", isResetting && "animate-spin")} />
           <span>{isResetting ? "Resetting State..." : "Reset Demo State"}</span>
         </button>
       </div>
 
       {resetMessage && (
-        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2 shadow-xs">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <span>{resetMessage}</span>
         </div>
       )}
@@ -136,16 +134,16 @@ export default function DemoCenterPage() {
           return (
             <div
               key={sc.id}
-              className="bg-[#0d131f] border border-[#1e293b] hover:border-blue-500/40 rounded-xl p-6 shadow-sm space-y-4 flex flex-col justify-between transition-all group"
+              className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-6 shadow-xs space-y-4 flex flex-col justify-between transition-all group"
             >
               <div className="space-y-3">
                 {/* Top Title & Expected Decision */}
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h3 className="text-base font-bold text-white group-hover:text-blue-400 transition-colors">
+                    <h3 className="text-base font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                       {sc.title}
                     </h3>
-                    <div className="text-xl font-bold font-mono text-white mt-1">
+                    <div className="text-xl font-bold font-mono text-slate-900 mt-1">
                       {sc.amount}
                     </div>
                   </div>
@@ -162,18 +160,18 @@ export default function DemoCenterPage() {
                 </div>
 
                 {/* Scenario Context */}
-                <div className="bg-[#131d2e] rounded-lg p-3 border border-[#1e293b] space-y-1.5 text-xs">
-                  <div className="text-slate-300">
-                    <span className="text-slate-400">Trigger: </span>
-                    <span className="font-medium text-white">{sc.failureReason}</span>
+                <div className="bg-slate-50 rounded-lg p-3.5 border border-slate-200 space-y-1.5 text-xs">
+                  <div className="text-slate-700">
+                    <span className="text-slate-500 font-medium">Trigger: </span>
+                    <span className="font-semibold text-slate-900">{sc.failureReason}</span>
                   </div>
-                  <div className="text-slate-300">
-                    <span className="text-slate-400">Customer: </span>
+                  <div className="text-slate-700">
+                    <span className="text-slate-500 font-medium">Customer: </span>
                     <span>{sc.customer}</span>
                   </div>
-                  <div className="text-slate-300">
-                    <span className="text-slate-400">Expected Flow: </span>
-                    <span className="text-slate-200">{sc.expectedOutcome}</span>
+                  <div className="text-slate-700">
+                    <span className="text-slate-500 font-medium">Expected Flow: </span>
+                    <span className="text-slate-800">{sc.expectedOutcome}</span>
                   </div>
                 </div>
               </div>
@@ -181,7 +179,7 @@ export default function DemoCenterPage() {
               {/* Action Button */}
               <Link
                 href={`/opportunities/${sc.id}`}
-                className="w-full py-2.5 rounded-lg bg-[#162032] hover:bg-blue-600 text-slate-200 hover:text-white border border-[#1e293b] hover:border-blue-500 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm"
+                className="w-full py-2.5 rounded-lg bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-blue-700 border border-slate-200 hover:border-blue-200 text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-xs"
               >
                 <span>Run &amp; Inspect Scenario</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
@@ -192,22 +190,22 @@ export default function DemoCenterPage() {
       </div>
 
       {/* Safety & Invariant Guarantees */}
-      <div className="bg-[#0d131f] border border-[#1e293b] rounded-xl p-6 shadow-sm space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 uppercase tracking-wider">
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
           <span>Deterministic Safety Invariants Verified Across Scenarios</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs text-slate-400 pt-1">
-          <div className="p-3 bg-[#131d2e] rounded-lg border border-[#1e293b]/60">
-            <strong className="text-slate-200 block mb-1">1. Zero Blind Retries</strong>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs text-slate-600 pt-1">
+          <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200">
+            <strong className="text-slate-900 block mb-1">1. Zero Blind Retries</strong>
             Ambiguous timeouts are quarantined until provider confirmation.
           </div>
-          <div className="p-3 bg-[#131d2e] rounded-lg border border-[#1e293b]/60">
-            <strong className="text-slate-200 block mb-1">2. Amount Cap Authority</strong>
+          <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200">
+            <strong className="text-slate-900 block mb-1">2. Amount Cap Authority</strong>
             Orders exceeding ₹15,000 cap always escalate to human review.
           </div>
-          <div className="p-3 bg-[#131d2e] rounded-lg border border-[#1e293b]/60">
-            <strong className="text-slate-200 block mb-1">3. Untrusted AI Boundary</strong>
+          <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200">
+            <strong className="text-slate-900 block mb-1">3. Untrusted AI Boundary</strong>
             AI proposals can never bypass deterministic policy checks.
           </div>
         </div>
