@@ -96,10 +96,10 @@ export default function OpportunityDetailInspectorPage() {
   const isIntervened = currentStatus === "INTERVENED";
 
   // Decision classification
-  const isAllow = score >= 60 && amount <= 15000 && id !== "opp_demo_04";
-  const isEscalate = amount > 15000;
-  const isAmbiguous = id === "opp_demo_03";
-  const isBlock = id === "opp_demo_04" || score < 20;
+  const isAmbiguous = id === "opp_demo_03" || opp.failure_category === "AMBIGUOUS" || (opp.id && opp.id.includes("demo_03"));
+  const isBlock = id === "opp_demo_04" || (opp.id && opp.id.includes("demo_04")) || score < 20 || opp.status === "CLOSED_UNRECOVERED";
+  const isEscalate = (!isAmbiguous && !isBlock) && (amount > 15000 || opp.status === "ESCALATED" || (opp.id && opp.id.includes("demo_02")));
+  const isAllow = !isAmbiguous && !isBlock && !isEscalate && score >= 60;
 
   const handleExecute = async () => {
     try {
