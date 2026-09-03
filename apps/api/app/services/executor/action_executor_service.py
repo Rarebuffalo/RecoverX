@@ -27,7 +27,7 @@ from app.services.executor.adapters.base_adapter import (
 )
 from app.services.executor.adapters.razorpay_adapter import GatewayExecutionException
 from app.services.policy_engine import PolicyEngine
-from app.services.recovery_scoring_service import RecoveryScoringService
+from app.services.opportunity_service import resolve_opportunity_id
 from app.core.logging import logger
 
 
@@ -38,13 +38,14 @@ class ActionExecutorService:
     async def create_and_queue_action(
         cls,
         db: AsyncSession,
-        opportunity_id: uuid.UUID,
+        opportunity_id: uuid.UUID | str,
         decision_id: Optional[uuid.UUID] = None,
         action_type: RecoveryActionType = RecoveryActionType.CREATE_RECOVERY_PAYMENT_LINK,
     ) -> RecoveryAction:
+        target_id = resolve_opportunity_id(opportunity_id)
         query = (
             select(RecoveryOpportunity)
-            .where(RecoveryOpportunity.id == opportunity_id)
+            .where(RecoveryOpportunity.id == target_id)
             .options(
                 selectinload(RecoveryOpportunity.order),
                 selectinload(RecoveryOpportunity.actions),
