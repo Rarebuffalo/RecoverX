@@ -6,9 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from app.db.session import get_db
-from app.models import RecoveryOpportunity, Order, RecoveryAction, ActionExecutionStatus
+from app.models import RecoveryOpportunity, Order, RecoveryAction, ActionExecutionStatus, Merchant
 from app.services.webhook_service import WebhookService
 from app.services.outcome.outcome_service import RecoveryOutcomeService
+from app.services.opportunity_service import resolve_opportunity_id
 
 router = APIRouter(prefix="/developer", tags=["Developer Simulation"])
 
@@ -35,15 +36,9 @@ async def simulate_payment_success(
     db: AsyncSession = Depends(get_db),
 ):
     """Developer-only simulation of customer paying the recovery payment link."""
-    opp = None
-    try:
-        opp_uuid = uuid.UUID(req.opportunity_id)
-        res = await db.execute(select(RecoveryOpportunity).where(RecoveryOpportunity.id == opp_uuid))
-        opp = res.scalar_one_or_none()
-    except (ValueError, TypeError):
-        # Fallback to first available opportunity for demo string IDs
-        res = await db.execute(select(RecoveryOpportunity).limit(1))
-        opp = res.scalar_one_or_none()
+    opp_uuid = resolve_opportunity_id(req.opportunity_id)
+    res = await db.execute(select(RecoveryOpportunity).where(RecoveryOpportunity.id == opp_uuid))
+    opp = res.scalar_one_or_none()
 
     if not opp:
         # If database is clean, return successful simulated payload response directly
@@ -75,10 +70,15 @@ async def simulate_payment_success(
     provider_payment_id = f"pay_sim_{sim_id}"
     event_id = f"evt_sim_{sim_id}"
 
+    # Resolve merchant
+    merchant_res = await db.execute(select(Merchant).where(Merchant.id == opp.merchant_id))
+    merchant = merchant_res.scalar_one_or_none()
+    account_id = merchant.razorpay_account_id if merchant else "acc_apex_sandbox_01"
+
     # Construct genuine payment.captured webhook payload
     synthetic_payload = {
         "entity": "event",
-        "account_id": "acc_mock_merchant_01",
+        "account_id": account_id,
         "event": "payment.captured",
         "contains": ["payment"],
         "payload": {
@@ -140,12 +140,8 @@ async def simulate_ambiguous_timeout(
     db: AsyncSession = Depends(get_db),
 ):
     """Simulates a network timeout during gateway execution, triggering the safe AMBIGUOUS state."""
-    opp = None
-    try:
-        opp_uuid = uuid.UUID(req.opportunity_id)
-        opp = (await db.execute(select(RecoveryOpportunity).where(RecoveryOpportunity.id == opp_uuid))).scalar_one_or_none()
-    except (ValueError, TypeError):
-        opp = (await db.execute(select(RecoveryOpportunity).limit(1))).scalar_one_or_none()
+    opp_uuid = resolve_opportunity_id(req.opportunity_id)
+    opp = (await db.execute(select(RecoveryOpportunity).where(RecoveryOpportunity.id == opp_uuid))).scalar_one_or_none()
 
     if not opp:
         return {
@@ -181,12 +177,8 @@ async def simulate_failed_payment(
     db: AsyncSession = Depends(get_db),
 ):
     """Simulates an explicit failed payment response from the gateway."""
-    opp = None
-    try:
-        opp_uuid = uuid.UUID(req.opportunity_id)
-        opp = (await db.execute(select(RecoveryOpportunity).where(RecoveryOpportunity.id == opp_uuid))).scalar_one_or_none()
-    except (ValueError, TypeError):
-        opp = (await db.execute(select(RecoveryOpportunity).limit(1))).scalar_one_or_none()
+    opp_uuid = resolve_opportunity_id(req.opportunity_id)
+    opp = (await db.execute(select(RecoveryOpportunity).where(RecoveryOpportunity.id == opp_uuid))).scalar_one_or_none()
 
     if not opp:
         return {
@@ -219,8 +211,8 @@ async def simulate_failed_payment(
 @router.post("/reset-demo-state")
 async def reset_demo_state(db: AsyncSession = Depends(get_db)):
     """Resets the developer demo state to known baseline opportunities and seeds."""
-    from app.db.seed import seed_database
-    await seed_database(db)
+    from app.db.seed import run_seeding
+    await run_seeding(db, force=True)
     return {
         "status": "success",
         "message": "Demo environment reset to baseline state successfully.",
