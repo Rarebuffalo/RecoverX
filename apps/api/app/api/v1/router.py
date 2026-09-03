@@ -10,11 +10,13 @@ from app.api.v1.endpoints import (
     audit_events,
     analytics,
     policies,
+    agent,
 )
 
 api_router = APIRouter()
 
 api_router.include_router(health.router)
+api_router.include_router(agent.router)
 api_router.include_router(merchants.router)
 api_router.include_router(orders.router)
 api_router.include_router(opportunities.router)
