@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { RotateCw, ShieldCheck, ExternalLink, ArrowUpRight, Search } from "lucide-react";
+import { RotateCw, ShieldCheck, ExternalLink, ArrowUpRight, Search, FileText } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { fetchActions } from "@/lib/api";
 import { RecoveryAction } from "@/lib/types";
+import { formatDate } from "@/lib/utils";
 
 export default function RecoveryActionsPage() {
   const [actions, setActions] = useState<RecoveryAction[]>([]);
@@ -59,7 +60,7 @@ export default function RecoveryActionsPage() {
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search Action ID, Opportunity ID, Idempotency key..."
+            placeholder="Search action type, opportunity ID, idempotency key..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
@@ -73,12 +74,12 @@ export default function RecoveryActionsPage() {
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider text-[10px] border-b border-slate-200">
               <tr>
-                <th className="py-3 px-4">Action ID &amp; Type</th>
+                <th className="py-3 px-4">Action &amp; Type</th>
                 <th className="py-3 px-4">Opportunity Reference</th>
                 <th className="py-3 px-4">Provider / Reference ID</th>
                 <th className="py-3 px-4 text-center">Status</th>
                 <th className="py-3 px-4">Idempotency Key</th>
-                <th className="py-3 px-4 text-right">Created</th>
+                <th className="py-3 px-4 text-right">Timestamp</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -98,17 +99,18 @@ export default function RecoveryActionsPage() {
                 filtered.map((act) => (
                   <tr key={act.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="py-3.5 px-4">
-                      <div className="font-mono font-bold text-slate-900">{act.id}</div>
-                      <div className="text-[10px] text-blue-600 uppercase font-semibold mt-0.5">
-                        {act.action_type}
+                      <div className="font-semibold text-slate-900">{act.action_type}</div>
+                      <div className="font-mono text-[10px] text-slate-400 mt-0.5" title={act.id}>
+                        ID: {act.id.length > 12 ? `${act.id.slice(0, 12)}...` : act.id}
                       </div>
                     </td>
                     <td className="py-3.5 px-4 font-mono">
                       <Link
                         href={`/opportunities/${act.opportunity_id}`}
                         className="text-blue-600 hover:text-blue-800 flex items-center gap-1 font-semibold"
+                        title={act.opportunity_id}
                       >
-                        <span>{act.opportunity_id}</span>
+                        <span>{act.opportunity_id.length > 12 ? `${act.opportunity_id.slice(0, 12)}...` : act.opportunity_id}</span>
                         <ArrowUpRight className="w-3 h-3" />
                       </Link>
                     </td>
@@ -118,7 +120,7 @@ export default function RecoveryActionsPage() {
                           href={act.payment_link_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-slate-800 hover:text-blue-600 flex items-center gap-1 font-mono text-[11px] truncate max-w-xs"
+                          className="text-blue-600 hover:underline flex items-center gap-1 font-mono text-[11px] truncate max-w-xs"
                         >
                           <span className="truncate">{act.provider_action_id || act.payment_link_url}</span>
                           <ExternalLink className="w-3 h-3 shrink-0" />
@@ -132,11 +134,11 @@ export default function RecoveryActionsPage() {
                     <td className="py-3.5 px-4 text-center">
                       <StatusBadge status={act.execution_status} size="sm" />
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500 max-w-xs truncate">
+                    <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500 max-w-xs truncate" title={act.idempotency_key}>
                       {act.idempotency_key}
                     </td>
-                    <td className="py-3.5 px-4 text-right text-slate-500 font-mono text-[11px]">
-                      {act.created_at ? new Date(act.created_at).toLocaleTimeString() : "Just now"}
+                    <td className="py-3.5 px-4 text-right text-slate-500 font-mono text-[11px] whitespace-nowrap">
+                      {formatDate(act.created_at)}
                     </td>
                   </tr>
                 ))
