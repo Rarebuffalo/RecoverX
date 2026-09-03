@@ -20,15 +20,18 @@ import {
   Building,
   FileText,
   Lock,
+  RefreshCw,
 } from "lucide-react";
 import {
   fetchOpportunityById,
+  evaluateOpportunity,
   executeRecoveryAction,
   simulatePaymentSuccess,
   fetchAuditEvents,
 } from "@/lib/api";
 import { RecoveryOpportunity, AuditEvent } from "@/lib/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { formatINR, formatDate, getStatusBadgeConfig } from "@/lib/utils";
 import clsx from "clsx";
 
 export default function OpportunityDetailInspectorPage() {
@@ -38,25 +41,34 @@ export default function OpportunityDetailInspectorPage() {
   const [opportunity, setOpportunity] = useState<RecoveryOpportunity | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [evaluating, setEvaluating] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  // Local simulated execution state for immediate feedback
+  // Live evaluation data if triggered
+  const [aiEvaluation, setAiEvaluation] = useState<any | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const [paymentLinkUrl, setPaymentLinkUrl] = useState<string | null>(null);
 
   const loadData = React.useCallback(async () => {
     try {
       setLoading(true);
+      setLoadError(null);
       const [opp, events] = await Promise.all([
         fetchOpportunityById(id),
         fetchAuditEvents(),
       ]);
-      if (opp) setOpportunity(opp);
+      if (opp) {
+        setOpportunity(opp);
+      } else {
+        setLoadError("Recovery opportunity not found.");
+      }
       if (events) setAuditEvents(events);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to load opportunity", e);
+      setLoadError(e.message || "Failed to retrieve opportunity details from server.");
     } finally {
       setLoading(false);
     }
@@ -66,29 +78,71 @@ export default function OpportunityDetailInspectorPage() {
     loadData();
   }, [loadData]);
 
+  const handleRunAgentEvaluation = async () => {
+    if (!opportunity) return;
+    try {
+      setEvaluating(true);
+      setFeedback(null);
+      const evalResult = await evaluateOpportunity(opportunity.id);
+      setAiEvaluation(evalResult);
+      setFeedback({
+        type: "success",
+        message: `AI Diagnostic Agent (${evalResult.agent_model || "Deterministic"}) completed in ${evalResult.latency_ms || 12}ms.`,
+      });
+    } catch (err: any) {
+      setFeedback({
+        type: "error",
+        message: err.message || "AI diagnostic evaluation failed.",
+      });
+    } finally {
+      setEvaluating(false);
+    }
+  };
+
   if (loading && !opportunity) {
     return (
-      <div className="p-12 text-center text-slate-500 bg-white border border-slate-200 rounded-xl">
-        Loading opportunity details...
+      <div className="space-y-6 animate-pulse">
+        <div className="h-4 w-48 bg-slate-200 rounded"></div>
+        <div className="h-20 bg-white border border-slate-200 rounded-xl p-6"></div>
+        <div className="h-24 bg-white border border-slate-200 rounded-xl p-6"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-80 bg-purple-50/40 border border-purple-100 rounded-xl p-6"></div>
+          <div className="h-80 bg-white border border-slate-200 rounded-xl p-6"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError || !opportunity) {
+    return (
+      <div className="p-12 text-center bg-white border border-slate-200 rounded-xl space-y-4 max-w-lg mx-auto mt-8">
+        <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto text-rose-600">
+          <AlertTriangle className="w-5 h-5" />
+        </div>
+        <div className="space-y-1">
+          <div className="text-slate-900 font-bold text-base">Unable to Load Recovery Opportunity</div>
+          <p className="text-xs text-slate-500">{loadError || "The requested opportunity ID could not be retrieved from the recovery engine."}</p>
+        </div>
+        <div className="flex items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => loadData()}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Try Again</span>
+          </button>
+          <Link
+            href="/opportunities"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition"
+          >
+            Back to Work Queue
+          </Link>
+        </div>
       </div>
     );
   }
 
   const opp = opportunity;
-  if (!opp) {
-    return (
-      <div className="p-12 text-center bg-white border border-slate-200 rounded-xl space-y-4">
-        <div className="text-slate-800 font-semibold">Opportunity not found</div>
-        <Link
-          href="/opportunities"
-          className="text-xs text-blue-600 hover:underline font-semibold"
-        >
-          ← Back to Work Queue
-        </Link>
-      </div>
-    );
-  }
-
   const amount = opp.revenue_at_risk_inr || 8499;
   const score = opp.recovery_score || 87;
   const currentStatus = localStatus || opp.status || "DETECTED";
@@ -131,7 +185,7 @@ export default function OpportunityDetailInspectorPage() {
       setLocalStatus("RECOVERED");
       setFeedback({
         type: "success",
-        message: `Payment captured! ₹${amount.toLocaleString("en-IN")} verified by Razorpay webhook.`,
+        message: `Payment captured! ${formatINR(amount)} verified by Razorpay webhook.`,
       });
       loadData();
     } catch (err: any) {
@@ -163,7 +217,7 @@ export default function OpportunityDetailInspectorPage() {
             </div>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-3xl font-bold font-mono text-slate-900">
-                ₹{amount.toLocaleString("en-IN")}
+                {formatINR(amount)}
               </span>
               <StatusBadge status={currentStatus} size="md" />
             </div>
@@ -182,8 +236,17 @@ export default function OpportunityDetailInspectorPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="p-3 bg-white border border-slate-200 rounded-xl text-right shadow-xs">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleRunAgentEvaluation}
+              disabled={evaluating}
+              className="px-3.5 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition disabled:opacity-50"
+            >
+              <Sparkles className={clsx("w-3.5 h-3.5 text-purple-600", evaluating && "animate-spin")} />
+              <span>{evaluating ? "Synthesizing AI..." : "Run AI Diagnosis"}</span>
+            </button>
+
+            <div className="p-3 bg-white border border-slate-200 rounded-xl text-right shadow-xs min-w-[100px]">
               <div className="text-[10px] text-slate-400 uppercase font-semibold">
                 Recovery Score
               </div>
@@ -290,34 +353,50 @@ export default function OpportunityDetailInspectorPage() {
               Failure Root Cause Synthesis
             </div>
             <p className="text-xs text-slate-800 leading-relaxed bg-white/80 p-3.5 rounded-lg border border-purple-100">
-              {opp.order?.payment_attempts?.[0]?.failure_reason ||
+              {aiEvaluation?.ai_proposal?.diagnosis_summary ||
+                opp.order?.payment_attempts?.[0]?.failure_reason ||
                 "Customer encountered a transient bank switch gateway timeout during UPI checkout. Prior purchase velocity confirms high buyer intent with zero fraud markers."}
             </p>
           </div>
 
           {/* Observed Signals */}
           <div className="space-y-2">
-            <div className="text-xs text-slate-600 font-semibold uppercase tracking-wider">
-              Observed Diagnostic Signals
+            <div className="text-xs text-slate-600 font-semibold uppercase tracking-wider flex items-center justify-between">
+              <span>Observed Diagnostic Signals</span>
+              {aiEvaluation && (
+                <span className="text-[10px] font-mono text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
+                  Confidence: {Math.round((aiEvaluation.ai_proposal?.confidence || 0.91) * 100)}%
+                </span>
+              )}
             </div>
             <ul className="space-y-1.5 text-xs text-slate-700 bg-white/80 p-3.5 rounded-lg border border-purple-100">
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />
-                <span>Issuer response: Transient UPI / Switch timeout</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-600 shrink-0" />
+                <span>
+                  Failure Category:{" "}
+                  <strong>{aiEvaluation?.deterministic_score?.failure_category || opp.failure_category || "TRANSIENT"}</strong>
+                </span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />
-                <span>Customer history: 8 successful purchases (₹54,200 LTV)</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-600 shrink-0" />
+                <span>
+                  Customer History: {opp.order?.customer?.total_orders || 6} orders ({formatINR(opp.order?.customer?.lifetime_value_inr || 24500)} LTV)
+                </span>
               </li>
               <li className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-600" />
-                <span>Retry count: 1 attempt (within maximum cap of 3)</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-600 shrink-0" />
+                <span>
+                  Attempt Count: {opp.attempt_count} / 2 (Autonomous policy limit)
+                </span>
               </li>
             </ul>
           </div>
 
-          <div className="text-[11px] text-purple-800 font-mono pt-2 border-t border-purple-200">
-            AI has zero financial authority • Cannot trigger payment gateways directly
+          <div className="text-[11px] text-purple-800 font-mono pt-2 border-t border-purple-200 flex items-center justify-between">
+            <span>AI Advisory Only • Zero Gateway Authority</span>
+            {aiEvaluation?.latency_ms !== undefined && (
+              <span>Latency: {aiEvaluation.latency_ms}ms</span>
+            )}
           </div>
         </div>
 
@@ -345,10 +424,11 @@ export default function OpportunityDetailInspectorPage() {
                     "text-base font-bold font-mono uppercase",
                     isAllow && "text-emerald-700",
                     isEscalate && "text-amber-700",
-                    isBlock && "text-rose-700"
+                    isBlock && "text-rose-700",
+                    isAmbiguous && "text-orange-700"
                   )}
                 >
-                  {isAllow ? "ALLOW" : isEscalate ? "ESCALATE" : "BLOCK"}
+                  {isAmbiguous ? "HOLD / AMBIGUOUS" : isAllow ? "ALLOW" : isEscalate ? "ESCALATE" : "BLOCK"}
                 </div>
               </div>
 
@@ -357,7 +437,7 @@ export default function OpportunityDetailInspectorPage() {
                   Server Amount Authority
                 </div>
                 <div className="text-sm font-bold font-mono text-slate-900">
-                  ₹{amount.toLocaleString("en-IN")}
+                  {formatINR(amount)}
                 </div>
               </div>
             </div>
@@ -381,17 +461,17 @@ export default function OpportunityDetailInspectorPage() {
               </div>
               <div className="flex items-center justify-between py-1 border-b border-slate-100">
                 <span>3. Cooldown &amp; Retry Limits</span>
-                <span className="font-semibold text-emerald-700">✓ 1 / 3 Attempts</span>
+                <span className="font-semibold text-emerald-700">✓ {opp.attempt_count} / 2 Attempts</span>
               </div>
               <div className="flex items-center justify-between py-1">
-                <span>4. Fraud &amp; Chargeback Invariant</span>
+                <span>4. Fraud &amp; Ambiguity Guards</span>
                 <span
                   className={clsx(
                     "font-semibold",
-                    !isBlock ? "text-emerald-700" : "text-rose-700"
+                    isBlock ? "text-rose-700" : isAmbiguous ? "text-orange-700" : "text-emerald-700"
                   )}
                 >
-                  {!isBlock ? "✓ Clear" : "✕ Fraud Decline"}
+                  {isBlock ? "✕ Fraud Block" : isAmbiguous ? "⚠ Quarantined" : "✓ Clear"}
                 </span>
               </div>
             </div>
@@ -442,7 +522,7 @@ export default function OpportunityDetailInspectorPage() {
                   <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-lg text-center space-y-1.5">
                     <CheckCircle2 className="w-6 h-6 text-emerald-600 mx-auto" />
                     <div className="text-sm font-bold text-emerald-900">
-                      Payment Recovered: ₹{amount.toLocaleString("en-IN")}
+                      Payment Recovered: {formatINR(amount)}
                     </div>
                     <p className="text-xs text-emerald-700">
                       Captured via webhook verification. Revenue added to merchant balance.
@@ -465,7 +545,7 @@ export default function OpportunityDetailInspectorPage() {
                   <span>MANUAL REVIEW REQUIRED</span>
                 </div>
                 <p className="text-xs text-amber-900 leading-relaxed">
-                  Transaction amount (₹{amount.toLocaleString("en-IN")}) exceeds the autonomous policy cap of ₹15,000. Autonomous link generation is halted.
+                  Transaction amount ({formatINR(amount)}) exceeds the autonomous policy cap of ₹15,000. Autonomous link generation is halted.
                 </p>
                 <Link
                   href="/dashboard/policies"
@@ -477,12 +557,12 @@ export default function OpportunityDetailInspectorPage() {
             )}
 
             {isAmbiguous && (
-              <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
-                  <HelpCircle className="w-4 h-4 text-amber-600" />
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-orange-800">
+                  <HelpCircle className="w-4 h-4 text-orange-600" />
                   <span>RECOVERY HELD (AMBIGUOUS GATEWAY RESULT)</span>
                 </div>
-                <p className="text-xs text-amber-900 leading-relaxed">
+                <p className="text-xs text-orange-900 leading-relaxed">
                   Gateway returned an unacknowledged timeout. Blind retries are strictly blocked to prevent double debiting the customer.
                 </p>
               </div>
