@@ -23,11 +23,12 @@ export default function AuditLogPage() {
   }, []);
 
   const filtered = events.filter((e) => {
-    return (
-      e.event_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.actor_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.resource_id.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const q = (searchQuery || "").toLowerCase();
+    if (!q) return true;
+    const eventType = (e.event_type || "").toLowerCase();
+    const actorType = (e.actor_type || "").toLowerCase();
+    const resourceId = (e.resource_id || "").toLowerCase();
+    return eventType.includes(q) || actorType.includes(q) || resourceId.includes(q);
   });
 
   return (

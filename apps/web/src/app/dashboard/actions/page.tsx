@@ -25,12 +25,13 @@ export default function RecoveryActionsPage() {
   }, []);
 
   const filtered = actions.filter((act) => {
-    return (
-      act.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      act.opportunity_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      act.idempotency_key.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      act.action_type.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const q = (searchQuery || "").toLowerCase();
+    if (!q) return true;
+    const id = (act.id || "").toLowerCase();
+    const oppId = (act.opportunity_id || "").toLowerCase();
+    const key = (act.idempotency_key || "").toLowerCase();
+    const actionType = (act.action_type || "").toLowerCase();
+    return id.includes(q) || oppId.includes(q) || key.includes(q) || actionType.includes(q);
   });
 
   return (
