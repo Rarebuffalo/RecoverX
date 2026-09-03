@@ -109,11 +109,11 @@ export async function updateMerchantPolicy(policy: Partial<MerchantPolicy>): Pro
 }
 
 export async function evaluateOpportunity(opportunityId: string) {
-  const res = await fetch(`${API_BASE_URL}/opportunities/${opportunityId}/evaluate-agent`, {
+  const res = await fetch(`${API_BASE_URL}/opportunities/${opportunityId}/agent-evaluate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
   });
-  if (!res.ok) throw new Error("Failed to evaluate opportunity");
+  if (!res.ok) throw new Error("Failed to evaluate opportunity with AI agent");
   return await res.json();
 }
 
