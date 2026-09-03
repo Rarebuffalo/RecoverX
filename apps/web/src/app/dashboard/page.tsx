@@ -26,6 +26,7 @@ import {
 import { fetchMetricsSummary, fetchOpportunities, fetchActions } from "@/lib/api";
 import { RecoveryOpportunity, RecoveryAction } from "@/lib/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { formatINR } from "@/lib/utils";
 import clsx from "clsx";
 
 export default function CommandCenterPage() {
@@ -59,12 +60,6 @@ export default function CommandCenterPage() {
     }
     loadData();
   }, []);
-
-  // Format Indian Rupees consistently (e.g. ₹1,24,890, ₹8,499)
-  const formatINR = (val: number) => {
-    if (!val && val !== 0) return "₹0";
-    return `₹${Math.round(val).toLocaleString("en-IN")}`;
-  };
 
   // Compute Pipeline Stage counts from actual opportunities
   const atRiskCount = opportunities.filter((o) => o.status === "DETECTED" || !o.status).length;
