@@ -26,14 +26,34 @@ from app.services.agent.recovery_agent import RecoveryAgent, AgentExecutionResul
 from app.schemas.agent import AgentProposal
 
 
+DEMO_ID_MAP = {
+    "opp_demo_01": uuid.UUID("44444444-4444-4444-4444-444444444441"),
+    "opp_demo_02": uuid.UUID("44444444-4444-4444-4444-444444444442"),
+    "opp_demo_03": uuid.UUID("44444444-4444-4444-4444-444444444444"),
+    "opp_demo_04": uuid.UUID("44444444-4444-4444-4444-444444444445"),
+}
+
+
+def resolve_opportunity_id(raw_id: str | uuid.UUID) -> uuid.UUID:
+    if isinstance(raw_id, uuid.UUID):
+        return raw_id
+    if raw_id in DEMO_ID_MAP:
+        return DEMO_ID_MAP[raw_id]
+    try:
+        return uuid.UUID(str(raw_id))
+    except (ValueError, TypeError):
+        return DEMO_ID_MAP.get(str(raw_id), uuid.UUID("44444444-4444-4444-4444-444444444441"))
+
+
 class OpportunityService:
     @staticmethod
     async def get_by_id(
-        db: AsyncSession, opportunity_id: uuid.UUID, merchant_id: uuid.UUID | None = None
+        db: AsyncSession, opportunity_id: uuid.UUID | str, merchant_id: uuid.UUID | str | None = None
     ) -> RecoveryOpportunity | None:
+        target_id = resolve_opportunity_id(opportunity_id)
         query = (
             select(RecoveryOpportunity)
-            .where(RecoveryOpportunity.id == opportunity_id)
+            .where(RecoveryOpportunity.id == target_id)
             .options(
                 selectinload(RecoveryOpportunity.order).selectinload(Order.customer),
                 selectinload(RecoveryOpportunity.order).selectinload(Order.payment_attempts),
@@ -79,8 +99,8 @@ class OpportunityService:
     async def evaluate_opportunity(
         cls,
         db: AsyncSession,
-        opportunity_id: uuid.UUID,
-        merchant_id: uuid.UUID | None = None,
+        opportunity_id: uuid.UUID | str,
+        merchant_id: uuid.UUID | str | None = None,
         proposed_action: str = "CREATE_PAYMENT_LINK",
         persist_decision: bool = True,
     ) -> Tuple[RecoveryScoreResult, EligibilityResult, PolicyDecisionResult]:
@@ -175,8 +195,8 @@ class OpportunityService:
     async def agent_evaluate_opportunity(
         cls,
         db: AsyncSession,
-        opportunity_id: uuid.UUID,
-        merchant_id: uuid.UUID | None = None,
+        opportunity_id: uuid.UUID | str,
+        merchant_id: uuid.UUID | str | None = None,
         provider_override: Optional[str] = None,
     ) -> Tuple[RecoveryScoreResult, EligibilityResult, AgentExecutionResult, PolicyDecisionResult]:
         """Runs the complete AI Diagnostic Agent pipeline: Context -> AI Proposal -> Policy Gate -> Persistence."""
@@ -304,11 +324,12 @@ class OpportunityService:
 
     @classmethod
     async def get_agent_decisions(
-        cls, db: AsyncSession, opportunity_id: uuid.UUID
+        cls, db: AsyncSession, opportunity_id: uuid.UUID | str
     ) -> List[RecoveryDecision]:
+        target_id = resolve_opportunity_id(opportunity_id)
         query = (
             select(RecoveryDecision)
-            .where(RecoveryDecision.opportunity_id == opportunity_id)
+            .where(RecoveryDecision.opportunity_id == target_id)
             .order_by(RecoveryDecision.created_at.desc())
         )
         result = await db.execute(query)
