@@ -7,7 +7,13 @@ import {
   FrontierPoint,
 } from "./types";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const rawBase =
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:8000";
+const API_BASE_URL = rawBase.endsWith("/api/v1")
+  ? rawBase
+  : `${rawBase.replace(/\/+$/, "")}/api/v1`;
 
 export async function fetchMetricsSummary() {
   try {

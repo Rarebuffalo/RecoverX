@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     @field_validator("CORS_ORIGINS", mode="before")
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
         if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
+            return [i.strip() for i in v.split(",") if i.strip()]
         elif isinstance(v, list):
             return v
         return ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -30,6 +30,28 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+asyncpg://recoverx:recoverx_secret@localhost:5432/recoverx_db"
     SYNC_DATABASE_URL: str = "postgresql://recoverx:recoverx_secret@localhost:5432/recoverx_db"
+
+    @field_validator("DATABASE_URL", mode="before")
+    def assemble_database_url(cls, v: str) -> str:
+        if isinstance(v, str) and v.strip():
+            v_clean = v.strip()
+            if v_clean.startswith("postgres://"):
+                v_clean = v_clean.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif v_clean.startswith("postgresql://") and "+asyncpg" not in v_clean:
+                v_clean = v_clean.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return v_clean
+        return "postgresql+asyncpg://recoverx:recoverx_secret@localhost:5432/recoverx_db"
+
+    @field_validator("SYNC_DATABASE_URL", mode="before")
+    def assemble_sync_database_url(cls, v: str) -> str:
+        if isinstance(v, str) and v.strip():
+            v_clean = v.strip()
+            if "+asyncpg" in v_clean:
+                v_clean = v_clean.replace("+asyncpg", "")
+            if v_clean.startswith("postgres://"):
+                v_clean = v_clean.replace("postgres://", "postgresql://", 1)
+            return v_clean
+        return "postgresql://recoverx:recoverx_secret@localhost:5432/recoverx_db"
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
