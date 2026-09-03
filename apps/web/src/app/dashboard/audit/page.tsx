@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { FileText, ShieldCheck, Search, Database, Clock } from "lucide-react";
 import { fetchAuditEvents } from "@/lib/api";
 import { AuditEvent } from "@/lib/types";
+import { formatDate } from "@/lib/utils";
 
 export default function AuditLogPage() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
@@ -57,7 +58,7 @@ export default function AuditLogPage() {
           <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search Event type, Actor, Resource ID..."
+            placeholder="Search event type, actor, resource ID..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition"
@@ -95,11 +96,11 @@ export default function AuditLogPage() {
               ) : (
                 filtered.map((evt) => (
                   <tr key={evt.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                    <td className="py-3.5 px-4 font-mono font-semibold text-slate-900">
                       {evt.id}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500">
-                      {evt.created_at ? new Date(evt.created_at).toLocaleTimeString() : "Just now"}
+                    <td className="py-3.5 px-4 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                      {formatDate(evt.created_at)}
                     </td>
                     <td className="py-3.5 px-4">
                       <span className="px-2 py-0.5 rounded font-mono text-[10px] font-bold uppercase bg-slate-100 text-slate-700 border border-slate-200">
@@ -114,7 +115,7 @@ export default function AuditLogPage() {
                     <td className="py-3.5 px-4 font-mono text-[11px] text-blue-600 font-semibold">
                       {evt.resource_id}
                     </td>
-                    <td className="py-3.5 px-4 text-right font-mono text-[10px] text-slate-500 max-w-xs truncate">
+                    <td className="py-3.5 px-4 text-right font-mono text-[10px] text-slate-500 max-w-xs truncate" title={JSON.stringify(evt.details || {})}>
                       {JSON.stringify(evt.details || {})}
                     </td>
                   </tr>
