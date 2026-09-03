@@ -4,7 +4,7 @@ import { TopBar } from "@/components/layout/TopBar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-[#090d16] text-slate-100 font-sans antialiased">
+    <div className="flex min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
       {/* Left Sidebar */}
       <Sidebar />
 
