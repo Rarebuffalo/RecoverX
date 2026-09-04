@@ -54,6 +54,13 @@ async def run_seeding(session: AsyncSession, force: bool = False):
         await session.execute(delete(ProcessedWebhook))
         await session.execute(delete(AgentRun))
         await session.execute(delete(AuditEvent).where(AuditEvent.merchant_id == DEMO_MERCHANT_ID))
+        await session.execute(delete(RecoveryAction))
+        await session.execute(delete(RecoveryDecision))
+        await session.execute(delete(RecoveryOpportunity))
+        await session.execute(delete(PaymentAttempt))
+        await session.execute(delete(Order))
+        await session.execute(delete(Customer).where(Customer.merchant_id == DEMO_MERCHANT_ID))
+        await session.execute(delete(MerchantPolicy).where(MerchantPolicy.merchant_id == DEMO_MERCHANT_ID))
         await session.execute(delete(Merchant).where(Merchant.id == DEMO_MERCHANT_ID))
         await session.commit()
 

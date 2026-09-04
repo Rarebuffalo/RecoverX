@@ -209,3 +209,39 @@ async def test_duplicate_reference_id_reconciliation_and_adapter_fallback(
     assert result.provider_action_id == "plink_existing_12345"
     assert result.payment_link_url == "https://rzp.io/i/existing_12345"
     assert result.status == "paid"
+
+
+@pytest.mark.asyncio
+async def test_consecutive_reset_demo_runs_produce_unique_reference_ids(
+    client: AsyncClient, db_session: AsyncSession
+):
+    """Proves two consecutive Reset Demo runs produce unique Razorpay reference_ids to avoid collisions."""
+    import time
+    from app.db.seed import run_seeding, OPP_A_ID
+    from app.services.executor.action_executor_service import ActionExecutorService
+
+    # 1. First Reset Demo run
+    await run_seeding(db_session, force=True)
+    action1 = await ActionExecutorService.create_and_queue_action(
+        db_session, opportunity_id=OPP_A_ID
+    )
+    ref_id_1 = action1.idempotency_key
+    ref_hash_1 = hashlib.sha256(ref_id_1.encode("utf-8")).hexdigest()[:16]
+
+    # Sleep slightly or advance time to guarantee distinct timestamp
+    time.sleep(1.05)
+
+    # 2. Second Reset Demo run
+    await run_seeding(db_session, force=True)
+    action2 = await ActionExecutorService.create_and_queue_action(
+        db_session, opportunity_id=OPP_A_ID
+    )
+    ref_id_2 = action2.idempotency_key
+    ref_hash_2 = hashlib.sha256(ref_id_2.encode("utf-8")).hexdigest()[:16]
+
+    # 3. Assert uniqueness
+    assert ref_id_1 != ref_id_2
+    assert ref_hash_1 != ref_hash_2
+    assert f"rec_{ref_hash_1}" != f"rec_{ref_hash_2}"
+    assert f"rec_{ref_hash_1}" != "rec_f8330f3537329e52" or f"rec_{ref_hash_2}" != "rec_f8330f3537329e52"
+

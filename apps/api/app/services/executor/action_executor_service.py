@@ -58,11 +58,18 @@ class ActionExecutorService:
             raise ValueError(f"Recovery Opportunity '{opportunity_id}' not found.")
 
         attempt_num = opp.attempt_count + 1
-        idempotency_key = f"recovery:{opp.id}:attempt:{attempt_num}"
+        created_ts = int(opp.created_at.timestamp()) if opp.created_at else int(datetime.now(timezone.utc).timestamp())
+        idempotency_key = f"recovery:{opp.id}:{created_ts}:attempt:{attempt_num}"
 
-        # Check existing action with same idempotency key
+        # Check existing action with same idempotency key or attempt number
         existing_res = await db.execute(
-            select(RecoveryAction).where(RecoveryAction.idempotency_key == idempotency_key)
+            select(RecoveryAction).where(
+                (RecoveryAction.idempotency_key == idempotency_key)
+                | (
+                    (RecoveryAction.opportunity_id == opp.id)
+                    & (RecoveryAction.attempt_number == attempt_num)
+                )
+            )
         )
         existing_action = existing_res.scalar_one_or_none()
         if existing_action:

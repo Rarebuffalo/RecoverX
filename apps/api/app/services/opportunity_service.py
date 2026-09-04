@@ -367,16 +367,19 @@ class OpportunityService:
         
         # Build comprehensive set of reference IDs and hashed keys for this opportunity
         all_ref_ids = set()
+        created_ts = int(opp.created_at.timestamp()) if opp.created_at else None
         for i in range(1, 5):
             raw_key = f"recovery:{opp.id}:attempt:{i}"
             all_ref_ids.add(raw_key)
-            h = f"rec_{hashlib.sha256(raw_key.encode('utf-8')).hexdigest()[:16]}"
-            all_ref_ids.add(h)
+            all_ref_ids.add(f"rec_{hashlib.sha256(raw_key.encode('utf-8')).hexdigest()[:16]}")
+            if created_ts:
+                ts_key = f"recovery:{opp.id}:{created_ts}:attempt:{i}"
+                all_ref_ids.add(ts_key)
+                all_ref_ids.add(f"rec_{hashlib.sha256(ts_key.encode('utf-8')).hexdigest()[:16]}")
         for act in (opp.actions or []):
             if act.idempotency_key:
                 all_ref_ids.add(act.idempotency_key)
-                h = f"rec_{hashlib.sha256(act.idempotency_key.encode('utf-8')).hexdigest()[:16]}"
-                all_ref_ids.add(h)
+                all_ref_ids.add(f"rec_{hashlib.sha256(act.idempotency_key.encode('utf-8')).hexdigest()[:16]}")
 
         # 1. Check if there are already processed webhook audit events in database
         audit_query = select(AuditEvent).where(
