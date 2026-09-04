@@ -9,14 +9,16 @@ from app.models import (
     Order,
     PaymentAttempt,
     RecoveryOpportunity,
+    RecoveryAction,
     AuditEvent,
     OrderStatus,
     PaymentAttemptStatus,
     OpportunityStatus,
+    ActionExecutionStatus,
     ActorType,
 )
 from app.services.event_handlers.base_handler import BaseEventHandler
-from app.services.event_handlers.common import resolve_merchant, get_or_create_customer
+from app.services.event_handlers.common import resolve_merchant, get_or_create_customer, resolve_recovery_target
 
 
 class PaymentCapturedHandler(BaseEventHandler):
@@ -36,6 +38,7 @@ class PaymentCapturedHandler(BaseEventHandler):
 
         provider_payment_id = payment_entity.get("id")
         provider_order_id = payment_entity.get("order_id")
+        notes = payment_entity.get("notes") or {}
         raw_amount = payment_entity.get("amount", 0)
         amount_inr = Decimal(str(raw_amount)) / Decimal("100.00")
         method = payment_entity.get("method", "unknown")
@@ -47,24 +50,23 @@ class PaymentCapturedHandler(BaseEventHandler):
         if not merchant:
             raise ValueError(f"Merchant could not be resolved for account_id '{account_id}'.")
 
-        # 2. Resolve or Create Customer & Update Stats
+        # 2. Multi-Vector Entity Resolution
+        order, opportunity, action = await resolve_recovery_target(
+            db,
+            merchant_id=merchant.id,
+            notes=notes,
+            provider_order_id=provider_order_id,
+            provider_payment_id=provider_payment_id,
+        )
+
+        # 3. Resolve or Create Customer & Update Stats
         customer = await get_or_create_customer(db, merchant.id, email=email, phone=phone)
         customer.successful_orders += 1
         customer.total_orders += 1
         customer.lifetime_value_inr += amount_inr
         customer.updated_at = datetime.now(timezone.utc)
 
-        # 3. Locate or Create Order with Row-Level Lock
-        order = None
-        if provider_order_id:
-            query = (
-                select(Order)
-                .where(Order.merchant_id == merchant.id, Order.provider_order_id == provider_order_id)
-                .with_for_update()
-            )
-            result = await db.execute(query)
-            order = result.scalar_one_or_none()
-
+        # 4. Locate or Create Order with Row-Level Lock
         if not order:
             order = Order(
                 id=uuid.uuid4(),
@@ -81,7 +83,7 @@ class PaymentCapturedHandler(BaseEventHandler):
             order.status = OrderStatus.PAID
             order.updated_at = datetime.now(timezone.utc)
 
-        # 4. Upsert Payment Attempt
+        # 5. Upsert Payment Attempt
         attempt_query = select(PaymentAttempt).where(
             PaymentAttempt.provider_payment_id == provider_payment_id
         ).with_for_update()
@@ -105,15 +107,16 @@ class PaymentCapturedHandler(BaseEventHandler):
 
         await db.flush()
 
-        # 5. Reconcile / Preempt Recovery Opportunity
+        # 6. Reconcile / Preempt Recovery Opportunity
         recovered_opportunity = False
-        opp_query = (
-            select(RecoveryOpportunity)
-            .where(RecoveryOpportunity.order_id == order.id)
-            .with_for_update()
-        )
-        opp_res = await db.execute(opp_query)
-        opportunity = opp_res.scalar_one_or_none()
+        if not opportunity and order:
+            opp_query = (
+                select(RecoveryOpportunity)
+                .where(RecoveryOpportunity.order_id == order.id)
+                .with_for_update()
+            )
+            opp_res = await db.execute(opp_query)
+            opportunity = opp_res.scalar_one_or_none()
 
         if opportunity and opportunity.status not in [OpportunityStatus.RECOVERED, OpportunityStatus.CLOSED_UNRECOVERED]:
             opportunity.status = OpportunityStatus.RECOVERED
@@ -138,7 +141,15 @@ class PaymentCapturedHandler(BaseEventHandler):
             )
             db.add(audit_opp)
 
-        # 6. Audit Event for Payment Captured
+            if action:
+                action.execution_status = ActionExecutionStatus.SUCCEEDED
+                action.completed_at = datetime.now(timezone.utc)
+            elif opportunity.actions:
+                for act in opportunity.actions:
+                    act.execution_status = ActionExecutionStatus.SUCCEEDED
+                    act.completed_at = datetime.now(timezone.utc)
+
+        # 7. Audit Event for Payment Captured
         audit_event = AuditEvent(
             id=uuid.uuid4(),
             merchant_id=merchant.id,
@@ -161,11 +172,13 @@ class PaymentCapturedHandler(BaseEventHandler):
             event_id=event_id,
             payment_id=provider_payment_id,
             order_id=str(order.id),
+            opportunity_id=str(opportunity.id) if opportunity else None,
             recovered_opportunity=recovered_opportunity,
         )
 
         return {
             "order_id": str(order.id),
             "payment_id": provider_payment_id,
+            "opportunity_id": str(opportunity.id) if opportunity else None,
             "recovered_opportunity": recovered_opportunity,
         }
