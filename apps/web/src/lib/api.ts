@@ -53,6 +53,17 @@ export async function fetchOpportunityById(id: string): Promise<RecoveryOpportun
   }
 }
 
+export async function fetchOpportunityActions(opportunityId: string): Promise<any[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/opportunities/${opportunityId}/actions`, { cache: "no-store" });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (err) {
+    return [];
+  }
+}
+
+
 export async function fetchActions(): Promise<RecoveryAction[]> {
   try {
     const res = await fetch(`${API_BASE_URL}/actions`, { cache: "no-store" });
@@ -123,23 +134,34 @@ export async function evaluateOpportunity(opportunityId: string) {
   return await res.json();
 }
 
-export async function executeRecoveryAction(opportunityId: string) {
+export async function fetchRuntimeStatus(): Promise<{
+  execution_mode: string;
+  adapter: string;
+  has_razorpay_key_id: boolean;
+  has_razorpay_key_secret: boolean;
+  has_razorpay_webhook_secret: boolean;
+  llm_provider: string;
+  environment: string;
+} | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/opportunities/${opportunityId}/execute`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-    if (res.ok) return await res.json();
+    const res = await fetch(`${API_BASE_URL}/runtime`, { cache: "no-store" });
+    if (!res.ok) return null;
+    return await res.json();
   } catch (err) {
-    // fallback gracefully for local sandbox demo IDs
+    return null;
   }
-  return {
-    action_id: `act_${opportunityId.slice(0, 8)}`,
-    opportunity_id: opportunityId,
-    action_type: "CREATE_RECOVERY_PAYMENT_LINK",
-    execution_status: "INTERVENED",
-    payment_link_url: `https://rzp.io/i/rec_${opportunityId.slice(0, 8)}`,
-  };
+}
+
+export async function executeRecoveryAction(opportunityId: string) {
+  const res = await fetch(`${API_BASE_URL}/opportunities/${opportunityId}/execute`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (res.ok) {
+    return await res.json();
+  }
+  const errData = await res.json().catch(() => ({}));
+  throw new Error(errData.detail || `Recovery execution failed with HTTP ${res.status}`);
 }
 
 export async function simulatePaymentSuccess(opportunityId: string, amountInr?: number) {

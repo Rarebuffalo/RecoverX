@@ -19,3 +19,15 @@ class ReadinessResponse(BaseModel):
     database: DependencyStatus
     redis: DependencyStatus
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class RuntimeStatusResponse(BaseModel):
+    execution_mode: str
+    adapter: str
+    has_razorpay_key_id: bool
+    has_razorpay_key_secret: bool
+    has_razorpay_webhook_secret: bool
+    llm_provider: str
+    environment: str
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+

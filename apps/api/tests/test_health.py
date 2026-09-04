@@ -41,3 +41,19 @@ async def test_readiness_endpoint_when_redis_disabled(client: AsyncClient, monke
     assert data["status"] == "ok"
     assert data["redis"]["status"] == "disabled"
 
+
+@pytest.mark.asyncio
+async def test_runtime_diagnostic_endpoint(client: AsyncClient):
+    response = await client.get("/runtime")
+    assert response.status_code == 200
+    data = response.json()
+    assert "execution_mode" in data
+    assert "adapter" in data
+    assert "has_razorpay_key_id" in data
+    assert "has_razorpay_key_secret" in data
+    assert "has_razorpay_webhook_secret" in data
+    # Ensure no secrets are leaked in response
+    assert "RAZORPAY_KEY_ID" not in str(data)
+    assert "RAZORPAY_KEY_SECRET" not in str(data)
+
+

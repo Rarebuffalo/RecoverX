@@ -5,7 +5,7 @@ from sqlalchemy import text
 import redis.asyncio as aioredis
 from app.core.config import settings
 from app.db.session import get_db
-from app.schemas.health import HealthResponse, ReadinessResponse, DependencyStatus
+from app.schemas.health import HealthResponse, ReadinessResponse, DependencyStatus, RuntimeStatusResponse
 
 router = APIRouter()
 
@@ -56,3 +56,21 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
         database=db_status,
         redis=redis_status,
     )
+
+
+@router.get("/runtime", response_model=RuntimeStatusResponse, tags=["Health"])
+async def runtime_status():
+    """Diagnostic probe: verifies active execution mode and gateway adapter selection without exposing secrets."""
+    from app.services.executor.adapters.factory import get_gateway_adapter
+
+    adapter = get_gateway_adapter()
+    return RuntimeStatusResponse(
+        execution_mode=settings.EXECUTION_MODE,
+        adapter=adapter.__class__.__name__,
+        has_razorpay_key_id=bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_ID.strip()),
+        has_razorpay_key_secret=bool(settings.RAZORPAY_KEY_SECRET and settings.RAZORPAY_KEY_SECRET.strip()),
+        has_razorpay_webhook_secret=bool(settings.RAZORPAY_WEBHOOK_SECRET and settings.RAZORPAY_WEBHOOK_SECRET.strip()),
+        llm_provider=settings.LLM_PROVIDER,
+        environment=settings.ENVIRONMENT,
+    )
+

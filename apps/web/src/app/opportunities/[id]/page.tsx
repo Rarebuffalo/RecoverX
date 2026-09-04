@@ -28,6 +28,7 @@ import {
   executeRecoveryAction,
   simulatePaymentSuccess,
   fetchAuditEvents,
+  fetchOpportunityActions,
 } from "@/lib/api";
 import { RecoveryOpportunity, AuditEvent } from "@/lib/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -56,9 +57,10 @@ export default function OpportunityDetailInspectorPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const [opp, events] = await Promise.all([
+      const [opp, events, actions] = await Promise.all([
         fetchOpportunityById(id),
         fetchAuditEvents(),
+        fetchOpportunityActions(id),
       ]);
       if (opp) {
         setOpportunity(opp);
@@ -66,6 +68,12 @@ export default function OpportunityDetailInspectorPage() {
         setLoadError("Recovery opportunity not found.");
       }
       if (events) setAuditEvents(events);
+      if (actions && actions.length > 0) {
+        const latestWithLink = actions.find((a: any) => a.payment_link_url);
+        if (latestWithLink?.payment_link_url) {
+          setPaymentLinkUrl(latestWithLink.payment_link_url);
+        }
+      }
     } catch (e: any) {
       console.error("Failed to load opportunity", e);
       setLoadError(e.message || "Failed to retrieve opportunity details from server.");
@@ -161,10 +169,12 @@ export default function OpportunityDetailInspectorPage() {
       setFeedback(null);
       const res = await executeRecoveryAction(opp.id);
       setLocalStatus("INTERVENED");
-      setPaymentLinkUrl(res?.payment_link_url || `https://rzp.io/i/rec_${opp.id.slice(0, 8)}`);
+      if (res?.payment_link_url) {
+        setPaymentLinkUrl(res.payment_link_url);
+      }
       setFeedback({
         type: "success",
-        message: "Dynamic Razorpay payment link created and dispatched to customer.",
+        message: "Dynamic payment link created and dispatched to customer.",
       });
       loadData();
     } catch (err: any) {
@@ -502,9 +512,20 @@ export default function OpportunityDetailInspectorPage() {
                       <div className="font-semibold text-blue-900">
                         Payment link dispatched to customer
                       </div>
-                      <div className="text-blue-700 font-mono text-[11px] truncate">
-                        {paymentLinkUrl || `https://rzp.io/i/rec_${opp.id.slice(0, 8)}`}
-                      </div>
+                      {paymentLinkUrl && paymentLinkUrl.startsWith("http") ? (
+                        <a
+                          href={paymentLinkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-700 hover:text-blue-900 underline font-mono text-[11px] truncate block"
+                        >
+                          {paymentLinkUrl} ↗
+                        </a>
+                      ) : (
+                        <div className="text-blue-700 font-mono text-[11px] truncate">
+                          {paymentLinkUrl || "Payment link dispatched via gateway"}
+                        </div>
+                      )}
                     </div>
 
                     <button

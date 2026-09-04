@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -16,7 +16,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import clsx from "clsx";
-import { resetDemoState } from "@/lib/api";
+import { resetDemoState, fetchRuntimeStatus } from "@/lib/api";
 
 const primaryNav = [
   { label: "Command Center", href: "/dashboard", icon: LayoutDashboard },
@@ -38,6 +38,13 @@ export function Sidebar() {
   const pathname = usePathname();
   const [isResetting, setIsResetting] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [runtime, setRuntime] = useState<any | null>(null);
+
+  useEffect(() => {
+    fetchRuntimeStatus().then((res) => {
+      if (res) setRuntime(res);
+    });
+  }, []);
 
   const handleReset = async () => {
     try {
@@ -175,15 +182,25 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Bottom Area: Local Demo Status & Working Reset Button */}
+      {/* Bottom Area: Dynamic Runtime Status & Working Reset Button */}
       <div className="p-3 border-t border-slate-200 bg-slate-50 space-y-2">
         <div className="flex items-center justify-between px-2 text-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-semibold text-slate-700">LOCAL DEMO</span>
+            <span className={clsx(
+              "w-2 h-2 rounded-full animate-pulse",
+              runtime?.execution_mode === "razorpay_sandbox" ? "bg-blue-500" : "bg-emerald-500"
+            )} />
+            <span className="font-semibold text-slate-700">
+              {runtime?.execution_mode === "razorpay_sandbox" ? "RAZORPAY TEST" : "LOCAL DEMO"}
+            </span>
           </div>
-          <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-medium">
-            TEST RAILS
+          <span className={clsx(
+            "text-[10px] uppercase font-mono px-1.5 py-0.5 rounded font-medium border",
+            runtime?.execution_mode === "razorpay_sandbox"
+              ? "bg-blue-50 text-blue-700 border-blue-200"
+              : "bg-emerald-50 text-emerald-700 border-emerald-200"
+          )}>
+            {runtime?.execution_mode === "razorpay_sandbox" ? "SANDBOX RAILS" : "TEST RAILS"}
           </span>
         </div>
 
