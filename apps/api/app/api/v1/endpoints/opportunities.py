@@ -369,3 +369,19 @@ async def get_opportunity_agent_decisions(
         )
         for d in decisions
     ]
+
+
+@router.post("/{opportunity_id}/reconcile")
+async def reconcile_opportunity_endpoint(
+    opportunity_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Reconciles recovery opportunity against verified webhook audit events or gateway evidence."""
+    try:
+        res = await OpportunityService.reconcile_opportunity(db, opportunity_id=opportunity_id)
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
