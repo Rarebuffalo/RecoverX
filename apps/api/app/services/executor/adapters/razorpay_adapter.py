@@ -183,3 +183,41 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
                 ProviderErrorCategory.AMBIGUOUS,
                 f"Unexpected gateway communication failure: {str(e)}",
             )
+
+    async def fetch_payment_link(self, provider_plink_id: str) -> dict:
+        """Fetches live payment link details directly from Razorpay API."""
+        if not self.key_id or not self.key_secret:
+            raise GatewayExecutionException(
+                ProviderErrorCategory.AUTHENTICATION_ERROR,
+                "Razorpay API credentials are not configured.",
+            )
+
+        endpoint = f"{self.base_url}/payment_links/{provider_plink_id}"
+        auth = (self.key_id, self.key_secret)
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                res = await client.get(endpoint, auth=auth)
+                if res.status_code == 200:
+                    return res.json()
+                elif res.status_code == 404:
+                    return {"id": provider_plink_id, "status": "not_found"}
+                else:
+                    res_data = {}
+                    try:
+                        res_data = res.json()
+                    except Exception:
+                        pass
+                    raise GatewayExecutionException(
+                        ProviderErrorCategory.PERMANENT_PROVIDER_ERROR,
+                        f"Failed to fetch payment link: {res.text}",
+                        res_data,
+                    )
+        except GatewayExecutionException:
+            raise
+        except Exception as e:
+            logger.error("Unexpected error fetching payment link from Razorpay", error=str(e), plink_id=provider_plink_id)
+            raise GatewayExecutionException(
+                ProviderErrorCategory.AMBIGUOUS,
+                f"Communication error fetching payment link: {str(e)}",
+            )
