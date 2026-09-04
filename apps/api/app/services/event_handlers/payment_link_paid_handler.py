@@ -18,7 +18,7 @@ from app.models import (
     ActorType,
 )
 from app.services.event_handlers.base_handler import BaseEventHandler
-from app.services.event_handlers.common import resolve_merchant, get_or_create_customer
+from app.services.event_handlers.common import resolve_merchant, resolve_recovery_target
 
 
 class PaymentLinkPaidHandler(BaseEventHandler):
@@ -37,7 +37,9 @@ class PaymentLinkPaidHandler(BaseEventHandler):
 
         provider_plink_id = plink_entity.get("id")
         provider_order_id = plink_entity.get("order_id") or payment_entity.get("order_id")
-        raw_amount = plink_entity.get("amount_paid") or plink_entity.get("amount", 0)
+        reference_id = plink_entity.get("reference_id")
+        notes = plink_entity.get("notes") or payment_entity.get("notes") or {}
+        raw_amount = plink_entity.get("amount_paid") or plink_entity.get("amount") or payment_entity.get("amount", 0)
         amount_inr = Decimal(str(raw_amount)) / Decimal("100.00")
         provider_payment_id = payment_entity.get("id")
 
@@ -46,22 +48,23 @@ class PaymentLinkPaidHandler(BaseEventHandler):
         if not merchant:
             raise ValueError(f"Merchant could not be resolved for account_id '{account_id}'.")
 
-        # 2. Locate Order with Row-Level Lock
-        order = None
-        if provider_order_id:
-            query = (
-                select(Order)
-                .where(Order.merchant_id == merchant.id, Order.provider_order_id == provider_order_id)
-                .with_for_update()
-            )
-            result = await db.execute(query)
-            order = result.scalar_one_or_none()
+        # 2. Multi-Vector Entity Resolution with Row-Level Locks
+        order, opportunity, action = await resolve_recovery_target(
+            db,
+            merchant_id=merchant.id,
+            provider_plink_id=provider_plink_id,
+            reference_id=reference_id,
+            notes=notes,
+            provider_order_id=provider_order_id,
+            provider_payment_id=provider_payment_id,
+        )
 
+        # 3. Locate or Update Order
         if order:
             order.status = OrderStatus.PAID
             order.updated_at = datetime.now(timezone.utc)
 
-            # 3. Upsert Payment Attempt if payment entity exists
+            # Upsert Payment Attempt if payment entity exists
             if provider_payment_id:
                 attempt_query = select(PaymentAttempt).where(
                     PaymentAttempt.provider_payment_id == provider_payment_id
@@ -84,7 +87,9 @@ class PaymentLinkPaidHandler(BaseEventHandler):
                     attempt.status = PaymentAttemptStatus.CAPTURED
                     attempt.updated_at = datetime.now(timezone.utc)
 
-            # 4. Reconcile Recovery Opportunity & Recovery Action
+        # 4. Reconcile Recovery Opportunity & Recovery Action
+        recovered_opportunity = False
+        if not opportunity and order:
             opp_query = (
                 select(RecoveryOpportunity)
                 .where(RecoveryOpportunity.order_id == order.id)
@@ -93,30 +98,50 @@ class PaymentLinkPaidHandler(BaseEventHandler):
             opp_res = await db.execute(opp_query)
             opportunity = opp_res.scalar_one_or_none()
 
-            if opportunity and opportunity.status not in [OpportunityStatus.RECOVERED, OpportunityStatus.CLOSED_UNRECOVERED]:
-                opportunity.status = OpportunityStatus.RECOVERED
-                opportunity.recovered_amount_inr = amount_inr
-                opportunity.resolved_at = datetime.now(timezone.utc)
-                opportunity.updated_at = datetime.now(timezone.utc)
+        if opportunity and opportunity.status not in [OpportunityStatus.RECOVERED, OpportunityStatus.CLOSED_UNRECOVERED]:
+            opportunity.status = OpportunityStatus.RECOVERED
+            opportunity.recovered_amount_inr = amount_inr
+            opportunity.resolved_at = datetime.now(timezone.utc)
+            opportunity.updated_at = datetime.now(timezone.utc)
+            recovered_opportunity = True
 
-                # Find any associated action
-                action_query = (
-                    select(RecoveryAction)
-                    .where(RecoveryAction.opportunity_id == opportunity.id)
-                    .with_for_update()
-                )
-                action_res = await db.execute(action_query)
-                for action in action_res.scalars().all():
-                    if action.provider_action_id == provider_plink_id or not action.provider_action_id:
-                        action.execution_status = ActionExecutionStatus.SUCCESS
-                        action.provider_action_id = provider_plink_id
-                        action.executed_at = datetime.now(timezone.utc)
+            # Audit event for REVENUE_RECOVERED
+            audit_opp = AuditEvent(
+                id=uuid.uuid4(),
+                merchant_id=merchant.id,
+                opportunity_id=opportunity.id,
+                actor_type=ActorType.SYSTEM,
+                event_type="REVENUE_RECOVERED",
+                event_summary=f"Revenue recovery confirmed: ₹{amount_inr} paid via link {provider_plink_id or ''}",
+                event_data={
+                    "order_id": str(order.id) if order else None,
+                    "opportunity_id": str(opportunity.id),
+                    "provider_plink_id": provider_plink_id,
+                    "provider_payment_id": provider_payment_id,
+                    "recovered_amount_inr": str(amount_inr),
+                },
+            )
+            db.add(audit_opp)
+
+        # Update matching action
+        if action:
+            action.execution_status = ActionExecutionStatus.SUCCEEDED
+            if provider_plink_id and not action.provider_action_id:
+                action.provider_action_id = provider_plink_id
+            action.completed_at = datetime.now(timezone.utc)
+        elif opportunity and opportunity.actions:
+            for act in opportunity.actions:
+                if act.provider_action_id == provider_plink_id or not act.provider_action_id:
+                    act.execution_status = ActionExecutionStatus.SUCCEEDED
+                    if provider_plink_id:
+                        act.provider_action_id = provider_plink_id
+                    act.completed_at = datetime.now(timezone.utc)
 
         # 5. Audit Event for Payment Link Paid
         audit_event = AuditEvent(
             id=uuid.uuid4(),
             merchant_id=merchant.id,
-            opportunity_id=opportunity.id if order and opportunity else None,
+            opportunity_id=opportunity.id if opportunity else None,
             actor_type=ActorType.SYSTEM,
             event_type="PAYMENT_LINK_PAID_PROCESSED",
             event_summary=f"Processed payment_link.paid for {provider_plink_id} (₹{amount_inr})",
@@ -126,6 +151,7 @@ class PaymentLinkPaidHandler(BaseEventHandler):
                 "provider_order_id": provider_order_id,
                 "provider_payment_id": provider_payment_id,
                 "amount_inr": str(amount_inr),
+                "recovered_opportunity": recovered_opportunity,
             },
         )
         db.add(audit_event)
@@ -135,9 +161,13 @@ class PaymentLinkPaidHandler(BaseEventHandler):
             event_id=event_id,
             plink_id=provider_plink_id,
             order_id=str(order.id) if order else None,
+            opportunity_id=str(opportunity.id) if opportunity else None,
+            recovered_opportunity=recovered_opportunity,
         )
 
         return {
             "order_id": str(order.id) if order else None,
+            "opportunity_id": str(opportunity.id) if opportunity else None,
             "plink_id": provider_plink_id,
+            "recovered_opportunity": recovered_opportunity,
         }
