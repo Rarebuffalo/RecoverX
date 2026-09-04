@@ -27,6 +27,7 @@ import {
   evaluateOpportunity,
   executeRecoveryAction,
   simulatePaymentSuccess,
+  reconcileOpportunity,
   fetchAuditEvents,
   fetchOpportunityActions,
 } from "@/lib/api";
@@ -45,6 +46,7 @@ export default function OpportunityDetailInspectorPage() {
   const [evaluating, setEvaluating] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -197,6 +199,34 @@ export default function OpportunityDetailInspectorPage() {
       });
     } finally {
       setExecuting(false);
+    }
+  };
+
+  const handleReconcile = async () => {
+    try {
+      setReconciling(true);
+      setFeedback(null);
+      const res = await reconcileOpportunity(opp.id);
+      if (res.status === "reconciled" || res.status === "already_recovered" || res.opportunity_status === "RECOVERED") {
+        setLocalStatus("RECOVERED");
+        setFeedback({
+          type: "success",
+          message: res.message || `Payment reconciled! ${formatINR(res.recovered_amount_inr || amount)} verified from gateway evidence.`,
+        });
+      } else {
+        setFeedback({
+          type: "error",
+          message: res.message || "No verified payment evidence found on gateway yet.",
+        });
+      }
+      await loadData();
+    } catch (err: any) {
+      setFeedback({
+        type: "error",
+        message: err.message || "Failed to reconcile recovery opportunity.",
+      });
+    } finally {
+      setReconciling(false);
     }
   };
 
@@ -541,14 +571,25 @@ export default function OpportunityDetailInspectorPage() {
                       )}
                     </div>
 
-                    <button
-                      onClick={handleSimulatePayment}
-                      disabled={simulating}
-                      className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition disabled:opacity-50"
-                    >
-                      <RotateCw className={clsx("w-3.5 h-3.5", simulating && "animate-spin")} />
-                      <span>{simulating ? "Verifying Webhook..." : "Simulate Customer Paid"}</span>
-                    </button>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        onClick={handleReconcile}
+                        disabled={reconciling}
+                        className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition disabled:opacity-50"
+                      >
+                        <RefreshCw className={clsx("w-3.5 h-3.5", reconciling && "animate-spin")} />
+                        <span>{reconciling ? "Syncing Gateway..." : "Sync Gateway Status"}</span>
+                      </button>
+
+                      <button
+                        onClick={handleSimulatePayment}
+                        disabled={simulating}
+                        className="w-full py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold flex items-center justify-center gap-2 shadow-xs transition disabled:opacity-50"
+                      >
+                        <RotateCw className={clsx("w-3.5 h-3.5", simulating && "animate-spin")} />
+                        <span>{simulating ? "Verifying Webhook..." : "Simulate Customer Paid"}</span>
+                      </button>
+                    </div>
                   </div>
                 )}
 
