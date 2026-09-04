@@ -164,6 +164,18 @@ export async function executeRecoveryAction(opportunityId: string) {
   throw new Error(errData.detail || `Recovery execution failed with HTTP ${res.status}`);
 }
 
+export async function reconcileOpportunity(opportunityId: string) {
+  const res = await fetch(`${API_BASE_URL}/opportunities/${opportunityId}/reconcile`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+  });
+  if (res.ok) {
+    return await res.json();
+  }
+  const errData = await res.json().catch(() => ({}));
+  throw new Error(errData.detail || `Reconciliation failed with HTTP ${res.status}`);
+}
+
 export async function simulatePaymentSuccess(opportunityId: string, amountInr?: number) {
   try {
     const res = await fetch(`${API_BASE_URL}/developer/simulate-payment-success`, {
