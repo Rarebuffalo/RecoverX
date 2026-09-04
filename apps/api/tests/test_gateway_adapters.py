@@ -113,3 +113,36 @@ async def test_razorpay_adapter_missing_credentials_raises():
         await adapter.create_recovery_payment_link(req)
     assert exc.value.category == ProviderErrorCategory.AUTHENTICATION_ERROR
 
+
+@pytest.mark.asyncio
+async def test_razorpay_adapter_reference_id_length_capped():
+    adapter = RazorpaySandboxAdapter(key_id="rzp_test_123", key_secret="secret_123")
+    # 55-char reference id
+    long_ref_id = "recovery:44444444-4444-4444-4444-444444444441:attempt:1"
+    req = CreatePaymentLinkRequest(
+        amount_paise=849900,
+        currency="INR",
+        reference_id=long_ref_id,
+        description="Test Long Ref ID",
+    )
+
+    with patch("httpx.AsyncClient.post") as mock_post:
+        mock_resp = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "id": "plink_G3Vp72HhW2bM4q",
+                "short_url": "https://rzp.io/i/G3Vp72Hh",
+                "status": "created",
+                "reference_id": "rec_a1b2c3d4e5f67890",
+            },
+        )
+        mock_post.return_value = mock_resp
+
+        result = await adapter.create_recovery_payment_link(req)
+        # Verify that payload sent to Razorpay had reference_id <= 40 chars
+        called_payload = mock_post.call_args[1]["json"]
+        assert len(called_payload["reference_id"]) <= 40
+        assert called_payload["reference_id"].startswith("rec_")
+        assert result.payment_link_url == "https://rzp.io/i/G3Vp72Hh"
+
+

@@ -55,15 +55,22 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
                 "Razorpay API credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) are not configured.",
             )
 
+        # Razorpay API limits reference_id to max 40 characters
+        ref_id = request.reference_id
+        if len(ref_id) > 40:
+            import hashlib
+            ref_hash = hashlib.sha256(ref_id.encode("utf-8")).hexdigest()[:16]
+            ref_id = f"rec_{ref_hash}"
+
         endpoint = f"{self.base_url}/payment_links"
         payload = {
             "amount": request.amount_paise,
             "currency": request.currency,
             "accept_partial": False,
-            "reference_id": request.reference_id,
-            "description": request.description,
+            "reference_id": ref_id,
+            "description": request.description[:255] if request.description else "RecoverX Payment Link",
             "reminder_enable": False,
-            "notes": request.notes,
+            "notes": {str(k): str(v) for k, v in (request.notes or {}).items()},
         }
 
         if request.customer_email or request.customer_contact or request.customer_name:
@@ -84,7 +91,7 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
         logger.info(
             "Dispatching HTTP POST to Razorpay Payment Links API",
             endpoint=endpoint,
-            reference_id=request.reference_id,
+            reference_id=ref_id,
             amount_paise=request.amount_paise,
             currency=request.currency,
         )

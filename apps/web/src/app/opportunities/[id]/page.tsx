@@ -168,15 +168,28 @@ export default function OpportunityDetailInspectorPage() {
       setExecuting(true);
       setFeedback(null);
       const res = await executeRecoveryAction(opp.id);
-      setLocalStatus("INTERVENED");
-      if (res?.payment_link_url) {
+      if (res?.execution_status === "SUCCEEDED" && res?.payment_link_url) {
+        setLocalStatus("INTERVENED");
         setPaymentLinkUrl(res.payment_link_url);
+        setFeedback({
+          type: "success",
+          message: `Dynamic payment link created: ${res.payment_link_url}`,
+        });
+      } else if (res?.execution_status === "SUCCEEDED") {
+        setLocalStatus("INTERVENED");
+        setFeedback({
+          type: "success",
+          message: "Dynamic payment link action completed successfully.",
+        });
+      } else {
+        const errCat = res?.error_category || "GATEWAY_ERROR";
+        const errMsg = res?.error_message || `Gateway returned status: ${res?.execution_status || "FAILED"}`;
+        setFeedback({
+          type: "error",
+          message: `Execution failed [${errCat}]: ${errMsg}`,
+        });
       }
-      setFeedback({
-        type: "success",
-        message: "Dynamic payment link created and dispatched to customer.",
-      });
-      loadData();
+      await loadData();
     } catch (err: any) {
       setFeedback({
         type: "error",
