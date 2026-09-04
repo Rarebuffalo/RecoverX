@@ -50,3 +50,66 @@ async def test_razorpay_adapter_error_classification():
         with pytest.raises(GatewayExecutionException) as exc:
             await adapter.create_recovery_payment_link(req)
         assert exc.value.category == ProviderErrorCategory.TRANSIENT_PROVIDER_ERROR
+
+
+@pytest.mark.asyncio
+async def test_factory_adapter_selection():
+    from app.services.executor.adapters.factory import get_gateway_adapter
+    from app.core.config import settings
+
+    # Mode 1: razorpay_sandbox
+    adapter = get_gateway_adapter("razorpay_sandbox")
+    assert isinstance(adapter, RazorpaySandboxAdapter)
+    assert adapter.adapter_name == "razorpay_sandbox"
+
+    # Mode 2: local_deterministic
+    adapter_mock = get_gateway_adapter("local_deterministic")
+    assert isinstance(adapter_mock, LocalDeterministicMockAdapter)
+    assert adapter_mock.adapter_name == "local_deterministic"
+
+
+@pytest.mark.asyncio
+async def test_razorpay_adapter_success_parsing():
+    adapter = RazorpaySandboxAdapter(key_id="rzp_test_123", key_secret="secret_123")
+    req = CreatePaymentLinkRequest(
+        amount_paise=849900,
+        currency="INR",
+        reference_id="rec_test_success_01",
+        description="Real Razorpay Test Link",
+        customer_name="Rahul Sharma",
+        customer_email="rahul@example.com",
+    )
+
+    with patch("httpx.AsyncClient.post") as mock_post:
+        mock_resp = MagicMock(
+            status_code=200,
+            json=lambda: {
+                "id": "plink_G3Vp72HhW2bM4q",
+                "short_url": "https://rzp.io/i/G3Vp72Hh",
+                "status": "created",
+                "reference_id": "rec_test_success_01",
+                "amount": 849900,
+            },
+        )
+        mock_post.return_value = mock_resp
+
+        result = await adapter.create_recovery_payment_link(req)
+        assert result.provider_action_id == "plink_G3Vp72HhW2bM4q"
+        assert result.payment_link_url == "https://rzp.io/i/G3Vp72Hh"
+        assert result.status == "created"
+        assert result.provider_reference_id == "rec_test_success_01"
+
+
+@pytest.mark.asyncio
+async def test_razorpay_adapter_missing_credentials_raises():
+    adapter = RazorpaySandboxAdapter(key_id="", key_secret="")
+    req = CreatePaymentLinkRequest(
+        amount_paise=849900,
+        currency="INR",
+        reference_id="rec_test_missing_creds",
+        description="Test Missing Creds",
+    )
+    with pytest.raises(GatewayExecutionException) as exc:
+        await adapter.create_recovery_payment_link(req)
+    assert exc.value.category == ProviderErrorCategory.AUTHENTICATION_ERROR
+

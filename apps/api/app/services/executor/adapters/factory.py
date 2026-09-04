@@ -8,8 +8,9 @@ def get_gateway_adapter(mode_override: str | None = None) -> BasePaymentGatewayA
     """Returns the configured Payment Gateway Adapter."""
     mode = (mode_override or settings.EXECUTION_MODE).lower().strip()
 
-    if mode == "razorpay_sandbox" and settings.RAZORPAY_KEY_ID:
+    if mode == "razorpay_sandbox":
         return RazorpaySandboxAdapter()
 
     # Default to Local Deterministic Mock Adapter
     return LocalDeterministicMockAdapter()
+

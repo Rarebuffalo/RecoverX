@@ -30,9 +30,11 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
         base_url: str = "https://api.razorpay.com/v1",
         timeout_seconds: float = 10.0,
     ):
-        self.key_id = key_id or settings.RAZORPAY_KEY_ID
-        self.key_secret = key_secret or settings.RAZORPAY_KEY_SECRET
-        self.base_url = base_url
+        raw_key_id = key_id or settings.RAZORPAY_KEY_ID
+        raw_key_secret = key_secret or settings.RAZORPAY_KEY_SECRET
+        self.key_id = raw_key_id.strip() if raw_key_id else ""
+        self.key_secret = raw_key_secret.strip() if raw_key_secret else ""
+        self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
 
     @property
@@ -43,9 +45,14 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
         self, request: CreatePaymentLinkRequest
     ) -> GatewayPaymentLinkResult:
         if not self.key_id or not self.key_secret:
+            logger.error(
+                "Razorpay credentials missing or incomplete in RazorpaySandboxAdapter",
+                has_key_id=bool(self.key_id),
+                has_key_secret=bool(self.key_secret),
+            )
             raise GatewayExecutionException(
                 ProviderErrorCategory.AUTHENTICATION_ERROR,
-                "Razorpay API credentials (KEY_ID / KEY_SECRET) are not configured.",
+                "Razorpay API credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) are not configured.",
             )
 
         endpoint = f"{self.base_url}/payment_links"
@@ -74,12 +81,32 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
 
         auth = (self.key_id, self.key_secret)
 
+        logger.info(
+            "Dispatching HTTP POST to Razorpay Payment Links API",
+            endpoint=endpoint,
+            reference_id=request.reference_id,
+            amount_paise=request.amount_paise,
+            currency=request.currency,
+        )
+
         try:
             async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
                 res = await client.post(endpoint, json=payload, auth=auth)
 
+                logger.info(
+                    "Razorpay API response status received",
+                    status_code=res.status_code,
+                    reference_id=request.reference_id,
+                )
+
                 if res.status_code in [200, 201]:
                     data = res.json()
+                    logger.info(
+                        "Razorpay Payment Link created successfully",
+                        provider_action_id=data.get("id", ""),
+                        payment_link_url=data.get("short_url", ""),
+                        reference_id=request.reference_id,
+                    )
                     return GatewayPaymentLinkResult(
                         provider_action_id=data.get("id", ""),
                         payment_link_url=data.get("short_url", ""),
@@ -97,6 +124,12 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
                     pass
 
                 err_desc = res_data.get("error", {}).get("description", res.text)
+                logger.error(
+                    "Razorpay API returned error status",
+                    status_code=res.status_code,
+                    error_description=err_desc,
+                    reference_id=request.reference_id,
+                )
 
                 if res.status_code in [401, 403]:
                     raise GatewayExecutionException(

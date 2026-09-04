@@ -28,6 +28,7 @@ from app.services.executor.adapters.base_adapter import (
 from app.services.executor.adapters.razorpay_adapter import GatewayExecutionException
 from app.services.policy_engine import PolicyEngine
 from app.services.opportunity_service import resolve_opportunity_id
+from app.core.config import settings
 from app.core.logging import logger
 
 
@@ -195,6 +196,17 @@ class ActionExecutorService:
                 "opportunity_id": str(opp.id),
                 "merchant_id": str(opp.merchant_id),
             },
+        )
+
+        logger.info(
+            "Invoking Gateway Adapter for Recovery Action",
+            action_id=str(action.id),
+            execution_mode=settings.EXECUTION_MODE,
+            selected_adapter=adapter.adapter_name,
+            razorpay_key_id_present=bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_ID.strip()),
+            razorpay_key_secret_present=bool(settings.RAZORPAY_KEY_SECRET and settings.RAZORPAY_KEY_SECRET.strip()),
+            idempotency_key=action.idempotency_key,
+            amount_paise=amount_paise,
         )
 
         try:
