@@ -145,6 +145,28 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
                         res_data,
                     )
                 elif res.status_code in [400, 422]:
+                    if "already exists" in err_desc.lower():
+                        logger.info(
+                            "Razorpay returned reference_id already exists; retrieving existing payment link",
+                            reference_id=ref_id,
+                        )
+                        existing_link = await self.fetch_payment_link_by_reference_id(ref_id)
+                        if existing_link:
+                            logger.info(
+                                "Retrieved existing Razorpay Payment Link after duplicate reference response",
+                                provider_action_id=existing_link.get("id", ""),
+                                payment_link_url=existing_link.get("short_url", ""),
+                                status=existing_link.get("status", "created"),
+                            )
+                            return GatewayPaymentLinkResult(
+                                provider_action_id=existing_link.get("id", ""),
+                                payment_link_url=existing_link.get("short_url", ""),
+                                provider_reference_id=existing_link.get("reference_id", request.reference_id),
+                                status=existing_link.get("status", "created"),
+                                created_at=datetime.now(timezone.utc),
+                                raw_response=existing_link,
+                            )
+
                     raise GatewayExecutionException(
                         ProviderErrorCategory.VALIDATION_ERROR,
                         f"Razorpay Validation Error ({res.status_code}): {err_desc}",
@@ -221,3 +243,29 @@ class RazorpaySandboxAdapter(BasePaymentGatewayAdapter):
                 ProviderErrorCategory.AMBIGUOUS,
                 f"Communication error fetching payment link: {str(e)}",
             )
+
+    async def fetch_payment_link_by_reference_id(self, reference_id: str) -> dict | None:
+        """Fetches live payment link details from Razorpay API by reference_id."""
+        if not self.key_id or not self.key_secret:
+            return None
+
+        ref_id = reference_id
+        if len(ref_id) > 40:
+            import hashlib
+            ref_hash = hashlib.sha256(ref_id.encode("utf-8")).hexdigest()[:16]
+            ref_id = f"rec_{ref_hash}"
+
+        endpoint = f"{self.base_url}/payment_links"
+        auth = (self.key_id, self.key_secret)
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
+                res = await client.get(endpoint, params={"reference_id": ref_id}, auth=auth)
+                if res.status_code == 200:
+                    items = res.json().get("payment_links", [])
+                    if items:
+                        return items[0]
+                return None
+        except Exception as e:
+            logger.warning("Failed to fetch payment link by reference_id from Razorpay", error=str(e), ref_id=ref_id)
+            return None

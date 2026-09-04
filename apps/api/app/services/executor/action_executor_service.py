@@ -221,8 +221,41 @@ class ActionExecutorService:
             action.execution_response = gw_result.raw_response
             action.completed_at = datetime.now(timezone.utc)
 
-            # Update Opportunity lifecycle state
-            opp.status = OpportunityStatus.INTERVENED
+            # Check if retrieved/created link was already paid
+            is_already_paid = (
+                gw_result.status == "paid"
+                or (
+                    isinstance(gw_result.raw_response, dict)
+                    and (
+                        gw_result.raw_response.get("status") == "paid"
+                        or gw_result.raw_response.get("amount_paid", 0) >= amount_paise
+                    )
+                )
+            )
+
+            if is_already_paid:
+                opp.status = OpportunityStatus.RECOVERED
+                opp.recovered_amount_inr = order.amount_inr
+                opp.resolved_at = datetime.now(timezone.utc)
+                order.status = OrderStatus.PAID
+                order.updated_at = datetime.now(timezone.utc)
+                db.add(AuditEvent(
+                    id=uuid.uuid4(),
+                    merchant_id=opp.merchant_id,
+                    opportunity_id=opp.id,
+                    actor_type=ActorType.EXECUTOR,
+                    event_type="REVENUE_RECOVERED",
+                    event_summary=f"Revenue recovery confirmed: ₹{order.amount_inr} already paid via link {gw_result.provider_action_id}",
+                    event_data={
+                        "action_id": str(action.id),
+                        "provider_action_id": gw_result.provider_action_id,
+                        "recovered_amount_inr": str(order.amount_inr),
+                        "reconciliation_source": "execution_gateway_match",
+                    },
+                ))
+            else:
+                opp.status = OpportunityStatus.INTERVENED
+
             opp.attempt_count += 1
             opp.last_attempt_at = datetime.now(timezone.utc)
             opp.updated_at = datetime.now(timezone.utc)
@@ -240,6 +273,7 @@ class ActionExecutorService:
                     "payment_link_url": gw_result.payment_link_url,
                     "amount_inr": float(order.amount_inr),
                     "adapter": adapter.adapter_name,
+                    "is_already_paid": is_already_paid,
                 },
             ))
             await db.commit()

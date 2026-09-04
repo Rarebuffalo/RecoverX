@@ -147,6 +147,19 @@ async def resolve_recovery_target(
         )
         ref_res = await db.execute(ref_query)
         act = ref_res.scalar_one_or_none()
+        if not act and reference_id.startswith("rec_"):
+            import hashlib
+            all_acts_query = select(RecoveryAction).options(
+                selectinload(RecoveryAction.opportunity).selectinload(RecoveryOpportunity.order),
+                selectinload(RecoveryAction.opportunity).selectinload(RecoveryOpportunity.actions),
+            ).with_for_update()
+            all_acts_res = await db.execute(all_acts_query)
+            for a in all_acts_res.scalars().all():
+                if a.idempotency_key:
+                    h = f"rec_{hashlib.sha256(a.idempotency_key.encode('utf-8')).hexdigest()[:16]}"
+                    if h == reference_id:
+                        act = a
+                        break
         if act and act.opportunity:
             return act.opportunity.order, act.opportunity, act
 

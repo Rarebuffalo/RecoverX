@@ -48,3 +48,16 @@ class LocalDeterministicMockAdapter(BasePaymentGatewayAdapter):
             "currency": "INR",
             "simulated": True,
         }
+
+    async def fetch_payment_link_by_reference_id(self, reference_id: str) -> dict | None:
+        ref_hash = hashlib.sha256(reference_id.encode("utf-8")).hexdigest()[:12]
+        provider_id = f"plink_mock_{ref_hash}"
+        return {
+            "id": provider_id,
+            "status": "created",
+            "reference_id": reference_id,
+            "amount": 849900,
+            "amount_paid": 0,
+            "currency": "INR",
+            "simulated": True,
+        }

@@ -46,3 +46,8 @@ class BasePaymentGatewayAdapter(ABC):
     async def fetch_payment_link(self, provider_plink_id: str) -> Dict[str, Any]:
         """Fetches status and details of an existing payment link from the gateway."""
         pass
+
+    @abstractmethod
+    async def fetch_payment_link_by_reference_id(self, reference_id: str) -> Optional[Dict[str, Any]]:
+        """Fetches status and details of an existing payment link using its reference ID."""
+        pass

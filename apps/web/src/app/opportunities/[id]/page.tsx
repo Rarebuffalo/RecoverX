@@ -158,6 +158,7 @@ export default function OpportunityDetailInspectorPage() {
   const currentStatus = localStatus || opp.status || "DETECTED";
   const isRecovered = currentStatus === "RECOVERED";
   const isIntervened = currentStatus === "INTERVENED";
+  const hasExistingAction = isIntervened || (opp.actions && opp.actions.length > 0 && opp.actions.some((a: any) => a.execution_status === 'SUCCEEDED' || a.provider_action_id || a.payment_link_url)) || (opp.attempt_count && opp.attempt_count > 0) || Boolean(paymentLinkUrl);
 
   // Decision classification
   const isAmbiguous = id === "opp_demo_03" || opp.failure_category === "AMBIGUOUS" || (opp.id && opp.id.includes("demo_03"));
@@ -366,12 +367,12 @@ export default function OpportunityDetailInspectorPage() {
           <div
             className={clsx(
               "p-2.5 rounded-lg border text-center font-bold",
-              isRecovered || isIntervened
+              isRecovered || isIntervened || hasExistingAction
                 ? "bg-blue-50 text-blue-800 border-blue-200"
                 : "bg-slate-50 text-slate-400 border-slate-200"
             )}
           >
-            {isRecovered || isIntervened ? "✓ 4. DISPATCHED" : "4. DISPATCH"}
+            {isRecovered || isIntervened || hasExistingAction ? "✓ 4. DISPATCHED" : "4. DISPATCH"}
           </div>
           <div
             className={clsx(
@@ -538,7 +539,7 @@ export default function OpportunityDetailInspectorPage() {
 
             {isAllow && (
               <div className="space-y-3">
-                {!isRecovered && !isIntervened && (
+                {!isRecovered && !hasExistingAction && (
                   <button
                     onClick={handleExecute}
                     disabled={executing}
@@ -549,7 +550,7 @@ export default function OpportunityDetailInspectorPage() {
                   </button>
                 )}
 
-                {isIntervened && !isRecovered && (
+                {!isRecovered && hasExistingAction && (
                   <div className="space-y-3">
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs space-y-1">
                       <div className="font-semibold text-blue-900">
