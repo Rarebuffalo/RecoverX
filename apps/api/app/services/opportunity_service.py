@@ -17,6 +17,9 @@ from app.models import (
     AuditEvent,
     AgentRun,
     ActorType,
+    OpportunityStatus,
+    OrderStatus,
+    ActionExecutionStatus,
 )
 from app.services.recovery_scoring_service import RecoveryScoringService, RecoveryScoreResult
 from app.services.recovery_eligibility_service import RecoveryEligibilityService, EligibilityResult
@@ -24,6 +27,8 @@ from app.services.policy_engine import PolicyEngine, PolicyDecisionResult
 from app.services.agent.context_builder import RecoveryContextBuilder
 from app.services.agent.recovery_agent import RecoveryAgent, AgentExecutionResult
 from app.schemas.agent import AgentProposal
+from app.core.config import settings
+from app.core.logging import logger
 
 
 DEMO_ID_MAP = {
@@ -334,3 +339,150 @@ class OpportunityService:
         )
         result = await db.execute(query)
         return list(result.scalars().all())
+
+    @classmethod
+    async def reconcile_opportunity(
+        cls, db: AsyncSession, opportunity_id: uuid.UUID | str
+    ) -> dict:
+        """Reconciles recovery opportunity against verified webhook audit events or live gateway evidence."""
+        target_id = resolve_opportunity_id(opportunity_id)
+        opp = await cls.get_by_id(db, opportunity_id=target_id)
+        if not opp:
+            raise ValueError(f"Recovery Opportunity '{opportunity_id}' not found.")
+
+        if opp.status == OpportunityStatus.RECOVERED:
+            return {
+                "status": "already_recovered",
+                "opportunity_id": str(opp.id),
+                "recovered_amount_inr": float(opp.recovered_amount_inr),
+                "opportunity_status": opp.status.value,
+                "message": "Opportunity is already marked as RECOVERED.",
+            }
+
+        now = datetime.now(timezone.utc)
+        action_ids = [a.provider_action_id for a in (opp.actions or []) if a.provider_action_id]
+
+        # 1. Check if there are already processed webhook audit events in database
+        audit_query = select(AuditEvent).where(
+            AuditEvent.event_type.in_([
+                "PAYMENT_LINK_PAID_PROCESSED",
+                "PAYMENT_CAPTURED_PROCESSED",
+                "ORDER_PAID_PROCESSED",
+                "REVENUE_RECOVERED",
+            ])
+        ).order_by(AuditEvent.created_at.desc())
+        audit_res = await db.execute(audit_query)
+        audits = audit_res.scalars().all()
+
+        matched_event = None
+        for a in audits:
+            data = a.event_data or {}
+            # Match by direct opportunity_id
+            if a.opportunity_id == opp.id or str(data.get("opportunity_id")) == str(opp.id):
+                matched_event = a
+                break
+            # Match by plink_id
+            plink = data.get("provider_plink_id")
+            if plink and plink in action_ids:
+                matched_event = a
+                break
+            # Match by order_id
+            if opp.order and data.get("provider_order_id") == opp.order.provider_order_id:
+                matched_event = a
+                break
+
+        # 2. If matched from audit event, perform atomic state transition
+        if matched_event:
+            amount = Decimal(str(matched_event.event_data.get("amount_inr") or opp.revenue_at_risk_inr))
+            opp.status = OpportunityStatus.RECOVERED
+            opp.recovered_amount_inr = amount
+            opp.resolved_at = now
+            opp.updated_at = now
+            if opp.order:
+                opp.order.status = OrderStatus.PAID
+                opp.order.updated_at = now
+            if opp.actions:
+                for act in opp.actions:
+                    act.execution_status = ActionExecutionStatus.SUCCEEDED
+                    act.completed_at = now
+
+            db.add(AuditEvent(
+                id=uuid.uuid4(),
+                merchant_id=opp.merchant_id,
+                opportunity_id=opp.id,
+                actor_type=ActorType.SYSTEM,
+                event_type="REVENUE_RECOVERED",
+                event_summary=f"Reconciled recovery for {opp.id}: ₹{amount} from verified audit trail",
+                event_data={
+                    "opportunity_id": str(opp.id),
+                    "recovered_amount_inr": str(amount),
+                    "reconciliation_source": "audit_event_match",
+                    "matched_event_id": str(matched_event.id),
+                },
+            ))
+            await db.commit()
+            await db.refresh(opp)
+            return {
+                "status": "reconciled",
+                "opportunity_id": str(opp.id),
+                "recovered_amount_inr": float(opp.recovered_amount_inr),
+                "opportunity_status": opp.status.value,
+                "message": f"Successfully reconciled recovery against verified event: {matched_event.event_type}",
+            }
+
+        # 3. Check live payment gateway if in razorpay_sandbox/live mode and action has plink_id
+        if settings.EXECUTION_MODE == "razorpay_sandbox" and action_ids:
+            try:
+                from app.services.executor.adapters.factory import get_gateway_adapter
+                adapter = get_gateway_adapter()
+                for plink_id in action_ids:
+                    plink_info = await adapter.fetch_payment_link(plink_id)
+                    if plink_info.get("status") == "paid" or plink_info.get("amount_paid", 0) > 0:
+                        raw_amt = plink_info.get("amount_paid") or plink_info.get("amount", 0)
+                        amount = Decimal(str(raw_amt)) / Decimal("100.00")
+                        opp.status = OpportunityStatus.RECOVERED
+                        opp.recovered_amount_inr = amount
+                        opp.resolved_at = now
+                        opp.updated_at = now
+                        if opp.order:
+                            opp.order.status = OrderStatus.PAID
+                            opp.order.updated_at = now
+                        if opp.actions:
+                            for act in opp.actions:
+                                if act.provider_action_id == plink_id:
+                                    act.execution_status = ActionExecutionStatus.SUCCEEDED
+                                    act.completed_at = now
+
+                        db.add(AuditEvent(
+                            id=uuid.uuid4(),
+                            merchant_id=opp.merchant_id,
+                            opportunity_id=opp.id,
+                            actor_type=ActorType.SYSTEM,
+                            event_type="REVENUE_RECOVERED",
+                            event_summary=f"Reconciled recovery for {opp.id}: ₹{amount} verified from Razorpay API",
+                            event_data={
+                                "opportunity_id": str(opp.id),
+                                "recovered_amount_inr": str(amount),
+                                "provider_plink_id": plink_id,
+                                "reconciliation_source": "razorpay_api_fetch",
+                            },
+                        ))
+                        await db.commit()
+                        await db.refresh(opp)
+                        return {
+                            "status": "reconciled",
+                            "opportunity_id": str(opp.id),
+                            "recovered_amount_inr": float(opp.recovered_amount_inr),
+                            "opportunity_status": opp.status.value,
+                            "message": f"Successfully reconciled recovery against Razorpay API ({plink_id})",
+                        }
+            except Exception as e:
+                logger.warning("Gateway link fetch during reconciliation failed", error=str(e))
+
+        return {
+            "status": "unreconciled",
+            "opportunity_id": str(opp.id),
+            "recovered_amount_inr": float(opp.recovered_amount_inr),
+            "opportunity_status": opp.status.value,
+            "message": "No verified payment evidence found for reconciliation.",
+        }
