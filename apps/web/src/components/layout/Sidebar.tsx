@@ -14,6 +14,7 @@ import {
   TrendingUp,
   RefreshCw,
   CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import clsx from "clsx";
 import { resetDemoState, fetchRuntimeStatus } from "@/lib/api";
@@ -201,6 +202,23 @@ export function Sidebar() {
               : "bg-emerald-50 text-emerald-700 border-emerald-200"
           )}>
             {runtime?.execution_mode === "razorpay_sandbox" ? "SANDBOX RAILS" : "TEST RAILS"}
+          </span>
+        </div>
+
+        <div className="flex items-center justify-between px-2 text-[11px] text-slate-500">
+          <div className="flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-purple-600" />
+            <span>AI Diagnostic</span>
+          </div>
+          <span className={clsx(
+            "text-[9px] uppercase font-mono px-1.5 py-0.2 rounded font-semibold border",
+            runtime?.llm_provider && runtime.llm_provider !== "mock"
+              ? "bg-purple-100 text-purple-700 border-purple-200"
+              : "bg-slate-100 text-slate-600 border-slate-200"
+          )}>
+            {runtime?.llm_provider && runtime.llm_provider !== "mock"
+              ? `REAL (${runtime.llm_provider.toUpperCase()})`
+              : "MOCK"}
           </span>
         </div>
 

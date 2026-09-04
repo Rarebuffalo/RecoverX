@@ -18,7 +18,7 @@ class LocalDeterministicMockLLM(BaseLLMProvider):
         cat_str = context.payment.failure_category.upper()
 
         # 1. Permanent Declines
-        if cat_str == "PERMANENT":
+        if "PERMANENT" in cat_str or "FRAUD" in cat_str or "STOLEN" in cat_str:
             return AgentProposal(
                 diagnosis_category=DiagnosisCategory.PERMANENT_PAYMENT_FAILURE,
                 diagnosis_summary="Payment declined due to permanent account closure, fraud flag, or hard card block.",
@@ -33,7 +33,7 @@ class LocalDeterministicMockLLM(BaseLLMProvider):
             )
 
         # 2. Terminal Paid Orders
-        if context.order.status == "paid" or context.opportunity.status == "RECOVERED":
+        if context.order.status in ["paid", "PAID"] or context.opportunity.status in ["RECOVERED", "recovered"]:
             return AgentProposal(
                 diagnosis_category=DiagnosisCategory.UNKNOWN,
                 diagnosis_summary="Order is already confirmed paid. No recovery action needed.",
@@ -57,17 +57,21 @@ class LocalDeterministicMockLLM(BaseLLMProvider):
                 ],
             )
 
-        # 4. Transient / Customer Action Required with Good Score -> Propose Link
-        if cat_str in ["TRANSIENT", "CUSTOMER_ACTION_REQUIRED"] and context.recovery.score >= 60:
-            diag = (
-                DiagnosisCategory.TRANSIENT_PAYMENT_FAILURE
-                if cat_str == "TRANSIENT"
-                else DiagnosisCategory.CUSTOMER_ACTION_REQUIRED
-            )
+        # 4. Standard Recoverable Failures with Good Score -> Propose Link
+        if ("TRANSIENT" in cat_str or "CUSTOMER_ACTION" in cat_str or "FUNDS" in cat_str or "METHOD" in cat_str) and context.recovery.score >= 60:
+            if "CUSTOMER_ACTION" in cat_str:
+                diag = DiagnosisCategory.CUSTOMER_ACTION_REQUIRED
+            elif "FUNDS" in cat_str:
+                diag = DiagnosisCategory.INSUFFICIENT_FUNDS
+            elif "METHOD" in cat_str:
+                diag = DiagnosisCategory.PAYMENT_METHOD_ISSUE
+            else:
+                diag = DiagnosisCategory.TRANSIENT_PAYMENT_FAILURE
+
             return AgentProposal(
                 diagnosis_category=diag,
                 diagnosis_summary=(
-                    "Payment failure appears transient or caused by checkout drop-off. "
+                    "Payment failure appears transient or recoverable. "
                     "Customer historical behavior demonstrates high willingness to complete checkout."
                 ),
                 recommended_action=RecoveryActionType.CREATE_RECOVERY_PAYMENT_LINK,

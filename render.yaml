@@ -17,6 +17,10 @@ services:
         value: local_deterministic
       - key: LLM_PROVIDER
         value: mock
+      - key: LLM_MODEL
+        value: gemini-2.5-flash
+      - key: LLM_API_KEY
+        value: ""
       - key: CORS_ORIGINS
         value: https://recoverx-web.onrender.com,http://localhost:3000
       - key: JWT_SECRET

@@ -149,7 +149,9 @@ If you prefer manual setup through the Render UI:
   | `DATABASE_URL` | `<Internal Database URL from Step 1>` | Database connection string |
   | `ENVIRONMENT` | `production` | Production environment mode |
   | `EXECUTION_MODE` | `local_deterministic` | Safe mock adapter (or `razorpay_sandbox`) |
-  | `LLM_PROVIDER` | `mock` | Deterministic diagnostic engine |
+  | `LLM_PROVIDER` | `mock` | `mock`, `gemini`, or `openai` |
+  | `LLM_MODEL` | `gemini-2.5-flash` | Selected model (`gemini-2.5-flash`, `gpt-4o-mini`) |
+  | `LLM_API_KEY` | `your_llm_api_key_here` | Server-side LLM secret (Optional, mock if empty) |
   | `CORS_ORIGINS` | `https://recoverx-web.onrender.com,http://localhost:3000` | Allowed origins |
   | `JWT_SECRET` | *(Random 32+ character string)* | Session security key |
 - Click **Create Web Service**.

@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     LLM_PROVIDER: str = "mock"  # "mock", "gemini", "openai"
     LLM_MODEL: str = "gemini-2.5-flash"
     LLM_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
     LLM_TIMEOUT_SECONDS: int = 15
     LLM_MAX_RETRIES: int = 1
 

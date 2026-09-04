@@ -30,6 +30,7 @@ import {
   reconcileOpportunity,
   fetchAuditEvents,
   fetchOpportunityActions,
+  fetchRuntimeStatus,
 } from "@/lib/api";
 import { RecoveryOpportunity, AuditEvent } from "@/lib/types";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -42,6 +43,7 @@ export default function OpportunityDetailInspectorPage() {
 
   const [opportunity, setOpportunity] = useState<RecoveryOpportunity | null>(null);
   const [auditEvents, setAuditEvents] = useState<AuditEvent[]>([]);
+  const [runtime, setRuntime] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [executing, setExecuting] = useState(false);
@@ -59,11 +61,13 @@ export default function OpportunityDetailInspectorPage() {
     try {
       setLoading(true);
       setLoadError(null);
-      const [opp, events, actions] = await Promise.all([
+      const [opp, events, actions, runtimeRes] = await Promise.all([
         fetchOpportunityById(id),
         fetchAuditEvents(),
         fetchOpportunityActions(id),
+        fetchRuntimeStatus(),
       ]);
+      if (runtimeRes) setRuntime(runtimeRes);
       if (opp) {
         setOpportunity(opp);
       } else {
@@ -396,15 +400,38 @@ export default function OpportunityDetailInspectorPage() {
               <Sparkles className="w-4 h-4 text-purple-600" />
               <span>AI Diagnostic Proposal</span>
             </div>
-            <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">
-              Advisory Only
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className={clsx(
+                "text-[10px] uppercase font-bold px-2 py-0.5 rounded border font-mono",
+                aiEvaluation?.provider && aiEvaluation.provider !== "mock"
+                  ? "bg-purple-600 text-white border-purple-700"
+                  : runtime?.llm_provider && runtime.llm_provider !== "mock"
+                  ? "bg-purple-600 text-white border-purple-700"
+                  : "bg-purple-100 text-purple-800 border-purple-200"
+              )}>
+                {aiEvaluation?.provider
+                  ? aiEvaluation.provider !== "mock"
+                    ? `REAL LLM (${aiEvaluation.provider.toUpperCase()})`
+                    : "MOCK LLM"
+                  : runtime?.llm_provider && runtime.llm_provider !== "mock"
+                  ? `REAL LLM (${runtime.llm_provider.toUpperCase()})`
+                  : "MOCK LLM"}
+              </span>
+              <span className="text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">
+                Advisory Only
+              </span>
+            </div>
           </div>
 
           {/* Diagnostic Text */}
           <div className="space-y-2">
-            <div className="text-xs text-slate-600 font-semibold uppercase tracking-wider">
-              Failure Root Cause Synthesis
+            <div className="text-xs text-slate-600 font-semibold uppercase tracking-wider flex items-center justify-between">
+              <span>Failure Root Cause Synthesis</span>
+              {aiEvaluation?.agent_model && (
+                <span className="text-[10px] font-mono text-slate-500">
+                  Model: {aiEvaluation.agent_model}
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-800 leading-relaxed bg-white/80 p-3.5 rounded-lg border border-purple-100">
               {aiEvaluation?.ai_proposal?.diagnosis_summary ||
@@ -428,7 +455,7 @@ export default function OpportunityDetailInspectorPage() {
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-600 shrink-0" />
                 <span>
                   Failure Category:{" "}
-                  <strong>{aiEvaluation?.deterministic_score?.failure_category || opp.failure_category || "TRANSIENT"}</strong>
+                  <strong>{aiEvaluation?.ai_proposal?.diagnosis_category || aiEvaluation?.deterministic_score?.failure_category || opp.failure_category || "TRANSIENT_PAYMENT_FAILURE"}</strong>
                 </span>
               </li>
               <li className="flex items-center gap-2">
@@ -443,6 +470,14 @@ export default function OpportunityDetailInspectorPage() {
                   Attempt Count: {opp.attempt_count} / 2 (Autonomous policy limit)
                 </span>
               </li>
+              {aiEvaluation?.ai_proposal?.recommended_action && (
+                <li className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-600 shrink-0" />
+                  <span>
+                    AI Proposed Action: <code className="font-mono text-purple-900 bg-purple-100 px-1 rounded">{aiEvaluation.ai_proposal.recommended_action}</code>
+                  </span>
+                </li>
+              )}
             </ul>
           </div>
 
