@@ -10,7 +10,9 @@ import {
 const rawBase =
   process.env.NEXT_PUBLIC_API_BASE_URL ||
   process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:8000";
+  (typeof window !== "undefined" && window.location.hostname.includes("onrender.com")
+    ? "https://recoverx-api-qhlx.onrender.com"
+    : "http://localhost:8000");
 const API_BASE_URL = rawBase.endsWith("/api/v1")
   ? rawBase
   : `${rawBase.replace(/\/+$/, "")}/api/v1`;
@@ -550,14 +552,14 @@ function getFallbackBenchmark() {
       },
     },
     economic_frontier: [
-      { threshold: 20, recovery_attempts: 20423, attempt_rate: 0.817, precision: 0.674, recall: 0.908, recovered_revenue_inr: 126349503.46, net_recovered_value_inr: 126307407.46, recovered_revenue_per_attempt: 6186.63 },
-      { threshold: 30, recovery_attempts: 20352, attempt_rate: 0.814, precision: 0.676, recall: 0.908, recovered_revenue_inr: 126291305.51, net_recovered_value_inr: 126249351.51, recovered_revenue_per_attempt: 6205.35 },
-      { threshold: 40, recovery_attempts: 20234, attempt_rate: 0.809, precision: 0.680, recall: 0.907, recovered_revenue_inr: 126014760.21, net_recovered_value_inr: 125973042.21, recovered_revenue_per_attempt: 6227.87 },
-      { threshold: 50, recovery_attempts: 19670, attempt_rate: 0.787, precision: 0.695, recall: 0.902, recovered_revenue_inr: 124454637.66, net_recovered_value_inr: 124414047.66, recovered_revenue_per_attempt: 6327.13 },
-      { threshold: 60, recovery_attempts: 18766, attempt_rate: 0.751, precision: 0.717, recall: 0.887, recovered_revenue_inr: 120477413.85, net_recovered_value_inr: 120438631.85, recovered_revenue_per_attempt: 6419.98 },
-      { threshold: 70, recovery_attempts: 16942, attempt_rate: 0.678, precision: 0.750, recall: 0.838, recovered_revenue_inr: 111596271.04, net_recovered_value_inr: 111561137.04, recovered_revenue_per_attempt: 6586.96 },
-      { threshold: 80, recovery_attempts: 14630, attempt_rate: 0.585, precision: 0.790, recall: 0.762, recovered_revenue_inr: 98299445.92, net_recovered_value_inr: 98268935.92, recovered_revenue_per_attempt: 6719.03 },
-      { threshold: 90, recovery_attempts: 11479, attempt_rate: 0.459, precision: 0.837, recall: 0.634, recovered_revenue_inr: 78372547.17, net_recovered_value_inr: 78348339.17, recovered_revenue_per_attempt: 6827.47 },
+      { threshold: 20, recovery_attempts: 20423, attempt_rate: 0.817, precision: 0.674, recall: 0.908, recovered_revenue_inr: 126349503.46, false_positive_amount_inr: 63239433.93, net_recovered_value_inr: 126307407.46, recovered_revenue_per_attempt: 6186.63, net_recovered_value_per_attempt: 6184.57 },
+      { threshold: 30, recovery_attempts: 20352, attempt_rate: 0.814, precision: 0.676, recall: 0.908, recovered_revenue_inr: 126291305.51, false_positive_amount_inr: 62037073.71, net_recovered_value_inr: 126249351.51, recovered_revenue_per_attempt: 6205.35, net_recovered_value_per_attempt: 6203.29 },
+      { threshold: 40, recovery_attempts: 20234, attempt_rate: 0.809, precision: 0.680, recall: 0.907, recovered_revenue_inr: 126014760.21, false_positive_amount_inr: 60207572.48, net_recovered_value_inr: 125973042.21, recovered_revenue_per_attempt: 6227.87, net_recovered_value_per_attempt: 6225.81 },
+      { threshold: 50, recovery_attempts: 19670, attempt_rate: 0.787, precision: 0.695, recall: 0.902, recovered_revenue_inr: 124454637.66, false_positive_amount_inr: 54060751.50, net_recovered_value_inr: 124414047.66, recovered_revenue_per_attempt: 6327.13, net_recovered_value_per_attempt: 6325.07 },
+      { threshold: 60, recovery_attempts: 18766, attempt_rate: 0.751, precision: 0.717, recall: 0.887, recovered_revenue_inr: 120477413.85, false_positive_amount_inr: 46659742.25, net_recovered_value_inr: 120438631.85, recovered_revenue_per_attempt: 6419.98, net_recovered_value_per_attempt: 6417.92 },
+      { threshold: 70, recovery_attempts: 16942, attempt_rate: 0.678, precision: 0.750, recall: 0.838, recovered_revenue_inr: 111596271.04, false_positive_amount_inr: 35750151.71, net_recovered_value_inr: 111561137.04, recovered_revenue_per_attempt: 6586.96, net_recovered_value_per_attempt: 6584.89 },
+      { threshold: 80, recovery_attempts: 14630, attempt_rate: 0.585, precision: 0.790, recall: 0.762, recovered_revenue_inr: 98299445.92, false_positive_amount_inr: 24177845.29, net_recovered_value_inr: 98268935.92, recovered_revenue_per_attempt: 6719.03, net_recovered_value_per_attempt: 6716.95 },
+      { threshold: 90, recovery_attempts: 11479, attempt_rate: 0.459, precision: 0.837, recall: 0.634, recovered_revenue_inr: 78372547.17, false_positive_amount_inr: 13112263.80, net_recovered_value_inr: 78348339.17, recovered_revenue_per_attempt: 6827.47, net_recovered_value_per_attempt: 6825.36 },
     ],
   };
 }

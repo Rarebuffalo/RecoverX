@@ -41,7 +41,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: NEXT_PUBLIC_API_BASE_URL
-        value: https://recoverx-api.onrender.com
+        value: https://recoverx-api-qhlx.onrender.com
 
 databases:
   - name: recoverx-postgres
