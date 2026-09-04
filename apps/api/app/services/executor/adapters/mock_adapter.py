@@ -38,3 +38,13 @@ class LocalDeterministicMockAdapter(BasePaymentGatewayAdapter):
                 "simulated": True,
             },
         )
+
+    async def fetch_payment_link(self, provider_plink_id: str) -> dict:
+        return {
+            "id": provider_plink_id,
+            "status": "created",
+            "amount": 849900,
+            "amount_paid": 0,
+            "currency": "INR",
+            "simulated": True,
+        }
