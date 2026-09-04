@@ -6,8 +6,8 @@ from app.core.logging import logger
 
 celery_app = Celery(
     "recoverx_worker",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker=settings.REDIS_URL or "redis://localhost:6379/0",
+    backend=settings.REDIS_URL or "redis://localhost:6379/0",
 )
 
 celery_app.conf.update(

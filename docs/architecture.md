@@ -82,23 +82,22 @@ Razorpay Webhook (POST /api/v1/webhooks/razorpay)
 │ 3. audit_events (Append-only immutable audit trail)          │
 └──────────────────────────────────────────────────────────────┘
 ```
-## High level architecuture
+## High Level Architecture
 ```
-                    ┌──────────────────────┐
-                    │      Railway         │
-                    │                      │
-Browser ───────────►│ Next.js Frontend     │
-                    │       │              │
-                    │       ▼              │
-                    │ FastAPI API ◄────────┼──── Razorpay Test API
-                    │   │      │           │
-                    │   │      └───────────┼──── Razorpay Webhooks
-                    │   ▼                  │
-                    │ PostgreSQL           │
-                    │                      │
-                    │ Redis ◄── Celery     │
-                    │           Worker     │
-                    └──────────────────────┘
+                    ┌──────────────────────────────┐
+                    │     Cloud / Render / Docker  │
+                    │                              │
+Browser ───────────►│ Next.js Frontend             │
+                    │       │                      │
+                    │       ▼                      │
+                    │ FastAPI API ◄────────────────┼──── Razorpay Test API
+                    │   │      │                   │
+                    │   │      └───────────────────┼──── Razorpay Webhooks
+                    │   ▼                          │
+                    │ PostgreSQL                   │
+                    │                              │
+                    │ Redis (Optional / Celery)    │
+                    └──────────────────────────────┘
 ```
 ## 3. Core Safety Invariants (10 Invariant Truths)
 

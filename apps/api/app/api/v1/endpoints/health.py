@@ -21,8 +21,8 @@ async def health_check():
 
 @router.get("/ready", response_model=ReadinessResponse, tags=["Health"])
 async def readiness_check(db: AsyncSession = Depends(get_db)):
-    """Readiness probe: verifies essential infrastructure dependencies (PostgreSQL and Redis)."""
-    # 1. Check PostgreSQL
+    """Readiness probe: verifies essential infrastructure dependencies (PostgreSQL and optional Redis)."""
+    # 1. Check PostgreSQL (Primary data store)
     db_status = DependencyStatus(status="down")
     start_time = time.perf_counter()
     try:
@@ -32,20 +32,23 @@ async def readiness_check(db: AsyncSession = Depends(get_db)):
     except Exception as e:
         db_status = DependencyStatus(status="down", error=str(e))
 
-    # 2. Check Redis
-    redis_status = DependencyStatus(status="down")
-    start_time = time.perf_counter()
-    try:
-        r = aioredis.from_url(settings.REDIS_URL, socket_timeout=2.0)
-        await r.ping()
-        await r.aclose()
-        latency = (time.perf_counter() - start_time) * 1000
-        redis_status = DependencyStatus(status="ok", latency_ms=round(latency, 2))
-    except Exception as e:
-        redis_status = DependencyStatus(status="down", error=str(e))
+    # 2. Check Redis (Optional dependency)
+    redis_status = DependencyStatus(status="disabled", latency_ms=0.0)
+    if settings.REDIS_URL and settings.REDIS_URL.strip():
+        start_time = time.perf_counter()
+        try:
+            r = aioredis.from_url(settings.REDIS_URL, socket_timeout=1.5)
+            await r.ping()
+            await r.aclose()
+            latency = (time.perf_counter() - start_time) * 1000
+            redis_status = DependencyStatus(status="ok", latency_ms=round(latency, 2))
+        except Exception as e:
+            redis_status = DependencyStatus(status="down", error=str(e))
 
-    overall_status = "ok" if (db_status.status == "ok" and redis_status.status == "ok") else "degraded"
-    if db_status.status == "down" and redis_status.status == "down":
+    # If Postgres is healthy, service is ready (Redis is optional for direct async execution)
+    if db_status.status == "ok":
+        overall_status = "ok" if redis_status.status in ["ok", "disabled"] else "degraded"
+    else:
         overall_status = "down"
 
     return ReadinessResponse(

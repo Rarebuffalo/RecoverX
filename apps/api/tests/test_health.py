@@ -29,3 +29,15 @@ async def test_readiness_endpoint(client: AsyncClient):
     assert "status" in data
     assert "database" in data
     assert "redis" in data
+
+
+@pytest.mark.asyncio
+async def test_readiness_endpoint_when_redis_disabled(client: AsyncClient, monkeypatch):
+    from app.core.config import settings
+    monkeypatch.setattr(settings, "REDIS_URL", "")
+    response = await client.get("/ready")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert data["redis"]["status"] == "disabled"
+

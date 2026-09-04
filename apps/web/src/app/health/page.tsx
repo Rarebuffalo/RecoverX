@@ -51,6 +51,13 @@ export default function HealthPage() {
         </span>
       );
     }
+    if (status === "disabled") {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/20">
+          <CheckCircle2 className="w-3.5 h-3.5" /> Optional (Disabled)
+        </span>
+      );
+    }
     if (status === "degraded") {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">

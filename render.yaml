@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: recoverx-api
+    runtime: docker
+    dockerContext: ./apps/api
+    dockerfilePath: ./apps/api/Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: recoverx-postgres
+          property: connectionString
+      - key: ENVIRONMENT
+        value: production
+      - key: EXECUTION_MODE
+        value: local_deterministic
+      - key: LLM_PROVIDER
+        value: mock
+      - key: CORS_ORIGINS
+        value: https://recoverx-web.onrender.com,http://localhost:3000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: RAZORPAY_KEY_ID
+        value: ""
+      - key: RAZORPAY_KEY_SECRET
+        value: ""
+      - key: RAZORPAY_WEBHOOK_SECRET
+        value: ""
+
+  - type: web
+    name: recoverx-web
+    runtime: docker
+    dockerContext: ./apps/web
+    dockerfilePath: ./apps/web/Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://recoverx-api.onrender.com
+
+databases:
+  - name: recoverx-postgres
+    databaseName: recoverx_db
+    user: recoverx
+    plan: free
